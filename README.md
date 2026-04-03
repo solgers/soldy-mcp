@@ -4,9 +4,19 @@ A Model Context Protocol (MCP) server for [Soldy AI](https://soldy.ai) — gener
 
 ## Installation
 
-### Claude Desktop / Cursor
+### Cursor / Claude Code (Recommended — via Skills)
 
-Add to your MCP configuration (`claude_desktop_config.json`):
+The fastest way to set up the Soldy MCP in Cursor or Claude Code is to let the agent install it for you:
+
+```
+npx skills add https://github.com/solgers/soldy-mcp
+```
+
+This installs the Soldy skill which auto-configures the MCP server and provides contextual guidance to the agent.
+
+### Claude Desktop / Cursor (Manual)
+
+Add to your MCP configuration (`claude_desktop_config.json` or `.cursor/mcp.json`):
 
 ```json
 {
