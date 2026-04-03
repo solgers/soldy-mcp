@@ -1,4 +1,4 @@
-# @soldy/mcp
+# @soldy_ai/mcp
 
 A Model Context Protocol (MCP) server for [Soldy AI](https://soldy.ai) — generate video ads, extract brand identities, and manage creative projects from any MCP client.
 
@@ -13,7 +13,7 @@ Add to your MCP configuration (`claude_desktop_config.json`):
   "mcpServers": {
     "soldy": {
       "command": "npx",
-      "args": ["-y", "@soldy/mcp"],
+      "args": ["-y", "@soldy_ai/mcp"],
       "env": {
         "SOLDY_API_KEY": "<your-api-key>"
       }
@@ -25,7 +25,7 @@ Add to your MCP configuration (`claude_desktop_config.json`):
 ### Claude Code
 
 ```bash
-claude mcp add soldy -e SOLDY_API_KEY=<your-api-key> -- npx -y @soldy/mcp
+claude mcp add soldy -e SOLDY_API_KEY=<your-api-key> -- npx -y @soldy_ai/mcp
 ```
 
 Get your API key at [app.soldy.ai/app/settings](https://app.soldy.ai/app/settings).

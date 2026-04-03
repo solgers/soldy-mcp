@@ -1,4 +1,4 @@
-name: Publish @soldy/mcp
+name: Publish @soldy_ai/mcp
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
-          if npm view @soldy/mcp@$VERSION version 2>/dev/null; then
+          if npm view @soldy_ai/mcp@$VERSION version 2>/dev/null; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Version $VERSION is already published. Skipping."
           else
@@ -72,5 +72,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ needs.check-version.outputs.tag }}" -m "Release @soldy/mcp ${{ needs.check-version.outputs.version }}"
+          git tag -a "${{ needs.check-version.outputs.tag }}" -m "Release @soldy_ai/mcp ${{ needs.check-version.outputs.version }}"
           git push origin "${{ needs.check-version.outputs.tag }}"
