@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "soldy-staging": {
+      "type": "streamable-http",
+      "url": "https://staging-api.soldy.ai/api/v1/mcp",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}

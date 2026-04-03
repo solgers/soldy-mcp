@@ -1,0 +1,37 @@
+{
+  "name": "@soldy/mcp",
+  "version": "0.1.2",
+  "description": "Soldy AI MCP Server — video ad generation via Claude Desktop, Cursor, Claude Code",
+  "type": "module",
+  "bin": {
+    "soldy-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "pack:dist": "npm run build && npm pack --pack-destination ../web/public/mcp",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/solgers/soldy-mcp.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
