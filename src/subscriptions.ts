@@ -1,4 +1,5 @@
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import WebSocket from "ws";
 import type { SoldyAPIClient } from "./client.js";
 
 /** Events that indicate project status changed. */
@@ -53,12 +54,22 @@ interface ServerMessage {
   };
 }
 
+/** Snapshot for detecting changes during HTTP polling fallback. */
+interface ProjectSnapshot {
+  status: string;
+  messageCount: number;
+  materialCount: number;
+}
+
 /**
- * Bridges WebSocket project subscriptions to MCP resource update notifications.
+ * Bridges project subscriptions to MCP resource update notifications.
  *
- * When an MCP client subscribes to a resource URI (e.g. `soldy://project/{id}/status`),
- * this bridge connects to the API WebSocket, subscribes to the project, and forwards
- * relevant events as `sendResourceUpdated` notifications.
+ * Primary transport: WebSocket (real-time, low latency).
+ * Fallback transport: HTTP polling (activates automatically when WebSocket
+ * is unavailable or repeatedly fails to connect).
+ *
+ * Both transports emit the same `sendResourceUpdated` notifications so MCP
+ * clients get a consistent experience regardless of the underlying transport.
  */
 export class SubscriptionBridge {
   private ws: WebSocket | null = null;
@@ -76,6 +87,16 @@ export class SubscriptionBridge {
   >();
   private static readonly BRAND_TASK_POLL_MS = 3000;
 
+  /** HTTP polling fallback state */
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private static readonly PROJECT_POLL_MS = 3000;
+  private projectSnapshots = new Map<string, ProjectSnapshot>();
+  private wsConsecutiveFailures = 0;
+  private static readonly WS_FAILURE_THRESHOLD = 3;
+  private usingPollingFallback = false;
+  private lastConnectTime = 0;
+  private static readonly RAPID_CLOSE_MS = 3000;
+
   constructor(
     private client: SoldyAPIClient,
     _apiUrl: string,
@@ -87,19 +108,35 @@ export class SubscriptionBridge {
     this.server = server;
   }
 
-  /** Subscribe to a project's WebSocket events. Call when MCP client subscribes to a resource. */
+  /** Subscribe to a project's updates. Tries WebSocket first, falls back to HTTP polling. */
   async subscribeProject(projectId: string) {
     if (this.subscribedProjects.has(projectId)) return;
     this.subscribedProjects.add(projectId);
 
-    await this.ensureConnected();
-    this.sendProjectSubscribe(projectId);
+    if (this.usingPollingFallback) {
+      this.ensurePolling();
+      return;
+    }
+
+    try {
+      await this.ensureConnected();
+      this.sendProjectSubscribe(projectId);
+    } catch {
+      console.error(
+        "[SubscriptionBridge] WebSocket unavailable, activating HTTP polling fallback",
+      );
+      this.activatePollingFallback();
+    }
   }
 
-  /** Unsubscribe from a project. Call when no more MCP subscriptions reference it. */
+  /** Unsubscribe from a project. */
   unsubscribeProject(projectId: string) {
     this.subscribedProjects.delete(projectId);
-    // WebSocket protocol doesn't support unsubscribe, but we stop sending notifications
+    this.projectSnapshots.delete(projectId);
+
+    if (this.subscribedProjects.size === 0) {
+      this.stopPolling();
+    }
   }
 
   /** Subscribe to brand task status changes via polling. */
@@ -122,7 +159,6 @@ export class SubscriptionBridge {
             this.server.sendResourceUpdated({
               uri: `soldy://brand/task/${taskId}`,
             });
-            // Also notify brand list when a new brand is extracted
             if (task.status === "finished") {
               this.server.sendResourceUpdated({ uri: "soldy://brands" });
               if (task.brand_id) {
@@ -130,10 +166,8 @@ export class SubscriptionBridge {
                   uri: `soldy://brand/${task.brand_id}`,
                 });
               }
-              // Task completed — stop polling
               this.unsubscribeBrandTask(taskId);
             } else if (task.status === "failed") {
-              // Task failed — stop polling
               this.unsubscribeBrandTask(taskId);
             }
           }
@@ -158,7 +192,7 @@ export class SubscriptionBridge {
     }
   }
 
-  /** Disconnect the WebSocket and stop all polling. */
+  /** Disconnect all transports and stop all polling. */
   disconnect() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -169,22 +203,37 @@ export class SubscriptionBridge {
       this.ws = null;
     }
     this.connecting = false;
+    this.stopPolling();
+    this.projectSnapshots.clear();
 
-    // Stop all brand task polls
-    for (const [taskId, entry] of this.brandTaskPolls) {
+    for (const [, entry] of this.brandTaskPolls) {
       clearInterval(entry.interval);
-      this.brandTaskPolls.delete(taskId);
     }
+    this.brandTaskPolls.clear();
   }
+
+  // ---------------------------------------------------------------------------
+  // WebSocket transport
+  // ---------------------------------------------------------------------------
 
   private async ensureConnected(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) return;
     if (this.connecting) {
-      // Wait for ongoing connection
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("WebSocket connect timeout")),
+          15_000,
+        );
         const check = () => {
-          if (this.ws?.readyState === WebSocket.OPEN) resolve();
-          else setTimeout(check, 100);
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            clearTimeout(timeout);
+            resolve();
+          } else if (!this.connecting) {
+            clearTimeout(timeout);
+            reject(new Error("WebSocket connection failed"));
+          } else {
+            setTimeout(check, 100);
+          }
         };
         check();
       });
@@ -199,38 +248,68 @@ export class SubscriptionBridge {
     const wsUrl = this.client.getWebSocketUrl(this.apiKey);
 
     return new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(wsUrl);
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        this.connecting = false;
+        this.wsConsecutiveFailures++;
+        reject(
+          err instanceof Error ? err : new Error("WebSocket creation failed"),
+        );
+        return;
+      }
 
-      ws.onopen = () => {
+      const connectTimeout = setTimeout(() => {
+        this.connecting = false;
+        this.wsConsecutiveFailures++;
+        ws.close();
+        reject(new Error("WebSocket connect timeout"));
+      }, 10_000);
+
+      ws.on("open", () => {
+        clearTimeout(connectTimeout);
         this.ws = ws;
         this.connecting = false;
-        this.reconnectDelay = 1000;
+        this.lastConnectTime = Date.now();
         console.error("[SubscriptionBridge] WebSocket connected");
 
-        // Re-subscribe all projects
         for (const projectId of this.subscribedProjects) {
           this.sendProjectSubscribe(projectId);
         }
 
         resolve();
-      };
+      });
 
-      ws.onmessage = (event) => {
-        this.handleMessage(String(event.data));
-      };
+      ws.on("message", (data) => {
+        this.handleMessage(String(data));
+      });
 
-      ws.onclose = () => {
-        console.error("[SubscriptionBridge] WebSocket closed");
+      ws.on("close", (code) => {
+        const uptime = Date.now() - this.lastConnectTime;
         this.ws = null;
         this.connecting = false;
+        if (
+          this.lastConnectTime > 0 &&
+          uptime < SubscriptionBridge.RAPID_CLOSE_MS
+        ) {
+          this.wsConsecutiveFailures++;
+          console.error(
+            `[SubscriptionBridge] WebSocket closed (code=${code}) after ${uptime}ms (rapid disconnect #${this.wsConsecutiveFailures})`,
+          );
+        } else {
+          console.error(`[SubscriptionBridge] WebSocket closed (code=${code})`);
+        }
         this.scheduleReconnect();
-      };
+      });
 
-      ws.onerror = (err) => {
-        console.error("[SubscriptionBridge] WebSocket error:", err);
+      ws.on("error", (err) => {
+        clearTimeout(connectTimeout);
+        console.error("[SubscriptionBridge] WebSocket error:", err.message);
         this.connecting = false;
+        this.wsConsecutiveFailures++;
         if (!this.ws) reject(new Error("WebSocket connection failed"));
-      };
+      });
     });
   }
 
@@ -238,17 +317,28 @@ export class SubscriptionBridge {
     if (this.subscribedProjects.size === 0) return;
     if (this.reconnectTimer) return;
 
+    if (
+      this.wsConsecutiveFailures >= SubscriptionBridge.WS_FAILURE_THRESHOLD &&
+      !this.usingPollingFallback
+    ) {
+      console.error(
+        `[SubscriptionBridge] ${this.wsConsecutiveFailures} consecutive WebSocket failures, activating HTTP polling fallback`,
+      );
+      this.activatePollingFallback();
+    }
+
+    const delay = Math.min(
+      this.reconnectDelay * 2 ** Math.max(0, this.wsConsecutiveFailures - 1),
+      this.maxReconnectDelay,
+    );
+
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect().catch((err) => {
-        console.error("[SubscriptionBridge] Reconnect failed:", err);
-        this.reconnectDelay = Math.min(
-          this.reconnectDelay * 2,
-          this.maxReconnectDelay,
-        );
+        console.error("[SubscriptionBridge] Reconnect failed:", err.message);
         this.scheduleReconnect();
       });
-    }, this.reconnectDelay);
+    }, delay);
   }
 
   private sendProjectSubscribe(projectId: string) {
@@ -274,17 +364,25 @@ export class SubscriptionBridge {
     const projectId = msg.context?.project_id;
     if (!projectId || !this.subscribedProjects.has(projectId)) return;
 
+    if (this.usingPollingFallback) {
+      console.error(
+        "[SubscriptionBridge] WebSocket recovered, stopping HTTP polling fallback",
+      );
+      this.stopPolling();
+      this.usingPollingFallback = false;
+    }
+    this.wsConsecutiveFailures = 0;
+    this.reconnectDelay = 1000;
+
     const event = msg.event;
     const runId = msg.context?.run_id;
 
-    // Status change notifications
     if (STATUS_EVENTS.has(event)) {
       this.server.sendResourceUpdated({
         uri: `soldy://project/${projectId}/status`,
       });
     }
 
-    // Message notifications
     if (MESSAGE_EVENTS.has(event)) {
       this.server.sendResourceUpdated({
         uri: `soldy://project/${projectId}/messages`,
@@ -296,7 +394,6 @@ export class SubscriptionBridge {
       }
     }
 
-    // Material notifications
     if (msg.message?.materials?.length) {
       this.server.sendResourceUpdated({
         uri: `soldy://project/${projectId}/materials`,
@@ -306,6 +403,92 @@ export class SubscriptionBridge {
           uri: `soldy://project/${projectId}/runs/${runId}/materials`,
         });
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // HTTP polling fallback — activated when WebSocket is unavailable
+  // ---------------------------------------------------------------------------
+
+  private activatePollingFallback() {
+    this.usingPollingFallback = true;
+    this.ensurePolling();
+  }
+
+  private ensurePolling() {
+    if (this.pollInterval) return;
+    if (this.subscribedProjects.size === 0) return;
+
+    console.error(
+      `[SubscriptionBridge] Starting HTTP polling for ${this.subscribedProjects.size} project(s)`,
+    );
+
+    this.pollInterval = setInterval(() => {
+      this.pollAllProjects();
+    }, SubscriptionBridge.PROJECT_POLL_MS);
+
+    this.pollAllProjects();
+  }
+
+  private stopPolling() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+
+  private async pollAllProjects() {
+    if (!this.server) return;
+
+    const projects = [...this.subscribedProjects];
+    await Promise.allSettled(projects.map((id) => this.pollProject(id)));
+  }
+
+  private async pollProject(projectId: string) {
+    if (!this.server) return;
+
+    try {
+      const [project, { total: messageCount }, materials] = await Promise.all([
+        this.client.getProject(projectId),
+        this.client.listMessages(projectId, 1, 1),
+        this.client.getMaterials(projectId),
+      ]);
+
+      if (!project) return;
+
+      const prev = this.projectSnapshots.get(projectId);
+      const current: ProjectSnapshot = {
+        status: project.status,
+        messageCount,
+        materialCount: materials.length,
+      };
+
+      this.projectSnapshots.set(projectId, current);
+
+      if (!prev) return;
+
+      if (current.status !== prev.status) {
+        this.server.sendResourceUpdated({
+          uri: `soldy://project/${projectId}/status`,
+        });
+      }
+
+      if (current.messageCount !== prev.messageCount) {
+        this.server.sendResourceUpdated({
+          uri: `soldy://project/${projectId}/messages`,
+        });
+      }
+
+      if (current.materialCount !== prev.materialCount) {
+        this.server.sendResourceUpdated({
+          uri: `soldy://project/${projectId}/materials`,
+        });
+      }
+    } catch (err) {
+      console.error(
+        `[SubscriptionBridge] Poll error (project ${projectId}):`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 }
