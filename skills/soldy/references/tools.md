@@ -118,11 +118,31 @@ Send a generation request to the project agent. This triggers the full productio
 | `ratio` | enum | **yes** | `9:16`, `16:9`, `1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9` |
 | `material_urls` | string[] | no | Image/video/audio URLs or local file paths |
 | `brand_id` | string | no | Brand ID for brand-aware generation |
+| `input_mode` | enum | no | `agent` (default, full pipeline) or `seedance` (direct Seedance 2.0 video) |
+| `seedance_reference_url` | string | no | Reference image for Seedance 2.0. **Required** when `input_mode='seedance'`. Local paths auto-upload. |
 
 - `ratio` is **required** (not optional like in `create_project`)
 - Local file paths in `material_urls` are auto-uploaded
 - HTTP/GCS URLs pass through directly
 - After sending, use `watch_project(project_id)` for real-time updates
+
+**Seedance 2.0 mode (`input_mode='seedance'`)**
+
+Bypasses the full creative-direction pipeline and drives Seedance 2.0 directly from a single reference image. Faster and lower-level — use when the user already has a strong reference and just wants a video from it.
+
+- `seedance_reference_url` is required (one image URL or local file path).
+- `content` can be empty — the agent builds the prompt from the reference. Pass `content` to steer motion, camera, or style.
+- Still returns via the normal watch/materials flow.
+
+```
+send_message({
+  project_id,
+  content: "slow push-in, soft backlight, 5s",
+  ratio: "9:16",
+  input_mode: "seedance",
+  seedance_reference_url: "./hero.jpg",
+})
+```
 
 ### pause_project
 

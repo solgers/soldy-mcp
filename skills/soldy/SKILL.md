@@ -1,6 +1,6 @@
 ---
 name: soldy
-description: "Soldy AI is an autonomous creative production studio that turns product/brand context into broadcast-quality video ads, social ad images, and brand identities. Use this skill when the user wants to: generate video ads for TikTok, YouTube, Instagram, or any platform; create product videos or brand commercials; extract brand identity from a URL; produce social media ad creatives; make narrative/story-driven ads, comedic ads, or emotional ads; create product shots or lifestyle imagery; iterate on creative direction, storyboards, or scripts; manage video generation projects; check generation progress or retrieve final assets. Also triggers on: Soldy, soldy.ai, @soldy_ai/mcp, create_project, send_message, extract_brand, watch_project, get_project_materials, video ad, product video, brand video, TikTok ad, YouTube ad, Instagram Reels, ad creative, storyboard, shot list, aspect ratio."
+description: "Soldy AI is an autonomous creative production studio that turns product/brand context into broadcast-quality video ads, social ad images, and brand identities. Use this skill when the user wants to: generate video ads for TikTok, YouTube, Instagram, or any platform; create product videos or brand commercials; extract brand identity from a URL; produce social media ad creatives; make narrative/story-driven ads, comedic ads, or emotional ads; create product shots or lifestyle imagery; iterate on creative direction, storyboards, or scripts; manage video generation projects; check generation progress or retrieve final assets. Also triggers on: Soldy, soldy.ai, @soldy_ai/mcp, create_project, send_message, extract_brand, watch_project, get_project_materials, video ad, product video, brand video, TikTok ad, YouTube ad, Instagram Reels, ad creative, storyboard, shot list, aspect ratio, Seedance, Seedance 2.0, seedance mode, image-to-video, animate image, reference image video."
 ---
 
 # Soldy AI
@@ -37,6 +37,7 @@ npx skills add solgers/soldy-mcp@soldy-mcp-setup
 | "Make social media creatives" | Static ad images optimized for Instagram, Facebook, TikTok |
 | "Adapt this to different platforms" | Format adaptation: 16:9 → 9:16 → 1:1 with smart recomposition |
 | "Improve this video / change the style" | Targeted iteration at shot, sequence, or creative-direction level |
+| "Animate this image / turn this image into a video" / "Use Seedance" | Direct **Seedance 2.0** mode — pass `input_mode: "seedance"` + `seedance_reference_url` to `send_message`, skipping the full creative pipeline |
 
 ## Core Workflow
 
@@ -99,7 +100,7 @@ A simulated creative team (Product Manager, Visual Artist, Creative Director, Di
 
 ### Phase 4: Video Generation
 - Multi-route concurrent I2V/T2V via **Kling v2.6 Pro** (default)
-- Alternative engines: **Seedance 2.0** (advanced, opt-in), **LTX-2** (extension)
+- Alternative engines: **Seedance 2.0** (advanced, opt-in — can also be invoked directly via `send_message({ input_mode: "seedance", seedance_reference_url })` to skip creative direction and drive the model from a single reference image), **LTX-2** (extension)
 - Color consistency enforced via HEX anchors from Color Bible
 
 ### Phase 5: Audio & Music

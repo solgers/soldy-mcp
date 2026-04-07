@@ -46,6 +46,8 @@ Required: ratio — the video aspect ratio. Choose based on target platform:
 Also supports:
 - material_urls: local file paths (auto-uploaded), GCS URLs, or external http URLs
 - brand_id: pass for brand-aware generation (get from list_brands or extract_brand)
+- input_mode: "agent" (default, full production pipeline) or "seedance" (direct Seedance 2.0 video generation from a single reference image — faster, lower-level, no creative direction phase)
+- seedance_reference_url: reference image for Seedance 2.0 mode. Required when input_mode="seedance". Accepts a local file path (auto-uploaded), GCS URL, or http URL. In seedance mode, \`content\` may be empty to let the agent build the prompt from the reference.
 
 The agent starts processing and project status becomes "running".
 After sending, use watch_project(project_id) to subscribe for real-time status/message/material updates. Alternatively, poll get_project_status.`,
@@ -69,8 +71,39 @@ After sending, use watch_project(project_id) to subscribe for real-time status/m
         .describe(
           "Brand ID for generation context. Get from list_brands or extract_brand.",
         ),
+      input_mode: z
+        .enum(["agent", "seedance"])
+        .optional()
+        .describe(
+          "'agent' (default) runs the full production pipeline. 'seedance' uses Seedance 2.0 direct video generation from a single reference image — requires seedance_reference_url.",
+        ),
+      seedance_reference_url: z
+        .string()
+        .optional()
+        .describe(
+          "Reference image for Seedance 2.0. Required when input_mode='seedance'. Local file paths are auto-uploaded; GCS/http URLs pass through.",
+        ),
     },
-    async ({ project_id, content, material_urls, ratio, brand_id }) => {
+    async ({
+      project_id,
+      content,
+      material_urls,
+      ratio,
+      brand_id,
+      input_mode,
+      seedance_reference_url,
+    }) => {
+      if (input_mode === "seedance" && !seedance_reference_url?.trim()) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "seedance_reference_url is required when input_mode='seedance'.",
+            },
+          ],
+          isError: true,
+        };
+      }
       let resolvedUrls: string[] | undefined;
       if (material_urls?.length) {
         try {
@@ -88,12 +121,36 @@ After sending, use watch_project(project_id) to subscribe for real-time status/m
         }
       }
 
+      let resolvedSeedanceRef: string | undefined;
+      if (seedance_reference_url?.trim()) {
+        try {
+          const [u] = await resolveUrls(client, [
+            seedance_reference_url.trim(),
+          ]);
+          resolvedSeedanceRef = u;
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Failed to process seedance_reference_url: ${err instanceof Error ? err.message : String(err)}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
       const body: Record<string, unknown> = {
         project_id,
         content,
         options: {
           ratio,
           ...(brand_id ? { brand_id } : {}),
+          ...(input_mode ? { input_mode } : {}),
+          ...(resolvedSeedanceRef
+            ? { seedance_reference_url: resolvedSeedanceRef }
+            : {}),
         },
       };
       if (resolvedUrls?.length) body.material_urls = resolvedUrls;
@@ -113,11 +170,12 @@ After sending, use watch_project(project_id) to subscribe for real-time status/m
         ? ` with ${resolvedUrls.length} material(s)`
         : "";
       const brandInfo = brand_id ? ` (brand: ${brand_id})` : "";
+      const modeInfo = input_mode === "seedance" ? " [mode: seedance 2.0]" : "";
       return {
         content: [
           {
             type: "text" as const,
-            text: `Message sent${matInfo}${brandInfo}, ratio: ${ratio}. Status: ${resp.data.status}\nUse watch_project to subscribe for updates, or poll with get_project_status.`,
+            text: `Message sent${matInfo}${brandInfo}${modeInfo}, ratio: ${ratio}. Status: ${resp.data.status}\nUse watch_project to subscribe for updates, or poll with get_project_status.`,
           },
         ],
       };

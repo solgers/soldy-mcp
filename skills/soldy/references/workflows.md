@@ -170,7 +170,7 @@ Soldy can recompose a single creative across aspect ratios intelligently (not ju
 
 ### Video Generation
 - **Kling v2.6 Pro** (default) — reliable I2V/T2V, 5-10s clips
-- **Seedance 2.0** (opt-in) — advanced multi-segment, edit/replace modes, 4-15s
+- **Seedance 2.0** (opt-in) — advanced multi-segment, edit/replace modes, 4-15s. Can be invoked directly via `send_message({ input_mode: "seedance", seedance_reference_url })`, which skips creative direction and drives Seedance 2.0 from a single reference image.
 - **LTX-2** (alternative) — scene extension
 
 ### Audio
