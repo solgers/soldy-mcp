@@ -1,185 +1,105 @@
-# Soldy — Production Pipelines & Workflows
+# What Soldy Does Behind `send_message`
 
-## Production Pipeline Overview
+This document describes what happens *inside* Soldy when you have a conversation with it. **It is not a procedure for you to follow.** Your interaction with Soldy is the conversation; the production pipeline below is Soldy's internal job. Read this when you need to *explain* Soldy to the user, anticipate where it might pause for input, or understand why a particular kind of refinement is fast vs. slow.
 
-When you call `send_message`, the Soldy agent runs through structured production phases. The exact pipeline depends on the content type, but all follow this general pattern:
+## The pipeline, in one picture
 
 ```
-User Prompt
-  → Intent Recognition (what type of content?)
-  → Domain Routing (which workflow?)
-  → Creative Direction (strategic concept)
-  → Visual Foundation (reference images, color bible)
-  → Script & Storyboard (per-shot cinematography)
-  → Media Generation (video/image/audio)
-  → Quality Gate (6-dimension evaluation)
-  → Final Delivery
+User turn (send_message)
+  → Intent recognition (what kind of content?)
+  → Domain routing (which production track?)
+  → Creative direction (one locked strategic concept)
+  → Visual foundation (reference images, color bible)
+  → Script & storyboard (per-shot cinematography)
+  → Media generation (video / image / audio)
+  → Quality gate (6-dimension scoring)
+  → Delivery
 ```
 
-Each phase has checkpoints where the agent may pause for approval.
+Each phase has checkpoints where Soldy may pause and ask the user for an approval or a creative choice. When that happens, the project status flips to `pause` and your job is to surface the question, not to invent an answer.
 
----
+## Production tracks
 
-## Video Production Workflows
+These are the trajectories Soldy can take. Which one runs depends on what the user wants — Soldy picks based on the conversation, not based on you specifying it.
 
-### Product Video (PV)
+### Product video (PV)
 
-Best for: e-commerce launches, brand hero videos, product demonstrations.
+Best for: e-commerce launches, product hero videos, demonstrations. Product-centric, no characters by default, typically 15–30s.
 
-**Pipeline:**
-1. **Creative Direction** — 4-role diagnosis (PM, Visual Artist, Creative Director, Director) → locked direction with video thesis, product role, environment strategy
-2. **Reference Images** — Product four-view (multi-angle standardized sheet) + Color bible (mood board + HEX palette)
-3. **Script Lock** — Full shot table with per-shot cinematography (scale, angle, lens, focus, composition, movement, lighting, sound)
-4. **Storyboard** — Generated frame per shot using references as anchors
-5. **Shot List** — I2V/T2V execution instructions per shot
-6. **Video Generation** — Multi-route concurrent synthesis via Kling v2.6 Pro
-7. **Music** — AI-composed soundtrack (beat-driven: unified tone, steady rhythm)
-8. **Final Merge** — All clips + music assembled in shot order
+Internal phases: 4-role creative diagnosis → product four-view + color bible → shot table → storyboard → multi-route I2V/T2V via Kling v2.6 Pro → beat-driven music → merge.
 
-**Characteristics:** Product-centric, no characters by default, typically 15-30s.
+### Narrative / story video
 
-### Narrative / Story Video
+Best for: emotional, comedic, cultural, and conversion ads. Character-driven, dialogue or visual story.
 
-Best for: emotional ads, comedic content, viral campaigns, character-driven narratives.
+Soldy auto-classifies the narrative intent into one of four modes and adapts the tension architecture, escalation curve, and cast intensity accordingly:
 
-**Pipeline:**
-1. **Narrative Intent Detection** — Auto-classify as Emotional, Comedic, Cultural, or Conversion
-2. **Three Creative Directions** — Agent generates A/B/C options, user picks one
-3. **Story Creative Card** — 8 narrative dimensions + constraint audit
-4. **Full Prose Story** — Director psychological cinema style (no timecodes, parenthetical camera/sound notes)
-5. **Cast Design** — Memorable characters via contrast principle
-6. **Reference Images** — Character design + face/body views + color bible
-7. **Script Lock** — Timing-locked beat table + per-shot cinematography
-8. **Storyboard → Video → Music → Final Merge** (same as PV)
+| Intent | Tension axis | Escalation | Cast intensity |
+|---|---|---|---|
+| Emotional | Identity / belonging | Linear, double reversal | DEPTH (psychology-driven) |
+| Comedic | Status / imminent failure | Chaos escalation | MAXIMUM (10x hyperbole) |
+| Cultural | Belonging / identity | Compressed reveal | MAXIMUM (zeitgeist-responsive) |
+| Conversion | Time pressure / failure | Linear | SELECTIVE (relatable) |
 
-**Narrative Intent Details:**
+In narrative mode, Soldy will often propose A/B/C creative directions and pause for the user to pick one. That pause is where you bring proposals back to the user — don't auto-pick.
 
-| Intent | Tension Axis | Escalation | Cast Intensity |
-|--------|-------------|------------|---------------|
-| Emotional | Identity conflict, belonging crisis | Linear, double reversal | DEPTH (psychology-driven) |
-| Comedic | Status risk, imminent failure | Chaos escalation | MAXIMUM (10x hyperbole) |
-| Cultural | Belonging crisis, identity conflict | Compressed reveal | MAXIMUM (zeitgeist-responsive) |
-| Conversion | Time pressure, imminent failure | Linear | SELECTIVE (relatable) |
+### Social ad images
 
-### Social Ad Images
+Static creatives for Instagram, Facebook, TikTok. Pipeline: references → composition → copy → render → quality gate.
 
-Best for: Instagram, Facebook, TikTok static creatives.
+### Product shots
 
-**Pipeline:**
-1. Reference Images → Composition → Copy Generation → Image Render → Quality Gate
+E-commerce product photography and lifestyle staging.
 
-### Product Shots
+### Seedance fast-path
 
-Best for: e-commerce product photography, lifestyle imagery.
+When you call `send_message` with `input_mode: "seedance"` and a `seedance_reference_url`, Soldy bypasses creative direction entirely and drives Seedance 2.0 directly from the reference image. Use this for "animate this image" intents, not for "make me an ad".
 
----
+## What "creative direction" produces
 
-## Creative Production Engines
+When the full pipeline runs, the creative direction phase locks one strategic concept that downstream phases all key off. It includes:
 
-### Creative Direction Engine
+- **Video thesis** — what the video says through images
+- **Product role** — reveal object, ritual center, texture icon, tool, etc.
+- **Environment strategy** — where the product lives and why
+- **Rhythm shape** — the progression logic
+- **Killer shot** — one image that crystallizes the concept
 
-Diagnoses the product and locks ONE production direction.
+This is locked once per creative direction. When the user asks for tone or shot tweaks, those iterations happen *under* the locked direction. When the user wants something fundamentally different, the direction itself is rewritten — that's a heavier iteration.
 
-**Process:**
-1. Product Diagnosis — four creative roles analyze the brief
-2. Strategic Synthesis — core strategy axis, hero communication task, visual priority
-3. Direction Development — locked direction with:
-   - **Video Thesis**: what this video says through images
-   - **Product Role**: reveal object, ritual center, texture icon, tool, etc.
-   - **Environment Strategy**: where the product lives and why
-   - **Rhythm Shape**: progression logic
-   - **Killer Shot**: one image that crystallizes the concept
+## Cast design (when characters are involved)
 
-### Cast Design Engine
+Soldy uses a contrast principle: memorability comes from the gap between expectation and reality. Entity types include humans, animals, robots, mascots, and product-as-character. Intensity scales from MAXIMUM (comedic / cultural) through DEPTH (emotional) to SELECTIVE (conversion) and NONE (product only).
 
-Creates memorable characters using the contrast principle (gap between expectation and reality = memorability).
+## DP selection
 
-**Entity Types:** Humans, Animals, Robots, Mascots, Product-as-Character
+Soldy picks a cinematographic style matched to the locked direction — Doyle, Lubezki, Hoytema, Fraser, Toland, Storaro, Muller, Urusevsky, Yusov, etc. Each DP shapes lens, framing, lighting, and composition rules. You don't pick the DP; the user describes the feel they want and Soldy chooses.
 
-**Intensity Levels:**
-- **MAXIMUM** (Comedic/Cultural) — 10x hyperbole, appearance IS the hook
-- **DEPTH** (Emotional) — psychology-driven internal contradictions
-- **SELECTIVE** (Conversion) — relatable "that's me" identification
-- **NONE** — product only, no characters
+## Quality gate
 
-### DP (Director of Photography) Selection
+Every produced asset is scored across six dimensions (see the SKILL.md "What good looks like" section for the table and weights). Score 8.0+ ships, 6.5–7.9 polishes, below that revises. These are Soldy's internal heuristics — useful as a shared vocabulary for talking with the user about whether an output is good, but not a hard gate.
 
-The agent selects a cinematographic style matched to the creative direction:
-- Doyle (vibrant, kinetic), Lubezki (natural light, long takes), Hoytema (anamorphic, epic scale)
-- Fraser (neon, high-contrast), Toland (deep focus, dramatic), Storaro (color symbolism)
-- Muller (minimalist, austere), Urusevsky (fluid camera), Yusov (landscape, patience)
+## Iteration levels — fast vs. slow refinements
 
-Each DP governs: lens choices, framing, lighting approach, composition rules.
-
----
-
-## Quality Gate: 6-Dimension Evaluation
-
-Every produced asset is scored across six dimensions:
-
-| Dimension | Weight | Question |
-|-----------|--------|----------|
-| Scroll-Stopping Power | 25% | Would this stop a thumb mid-scroll? |
-| Message Clarity | 20% | Single viewing = complete understanding? |
-| Emotional Resonance | 20% | Does the viewer FEEL something? |
-| Brand Fit | 15% | Unmistakably on-brand? |
-| Conversion Potential | 10% | Will this drive action? |
-| Shareability | 10% | Would someone share with a friend? |
-
-**Quality verdicts:**
-
-| Score | Verdict | Action |
-|-------|---------|--------|
-| 8.0+ | Exceptional | Ship |
-| 6.5-7.9 | Good | Minor polish |
-| 5.0-6.4 | Needs Work | Revise |
-| < 5.0 | Restart | Rethink at creative phase |
-
----
-
-## Iteration Levels
-
-When refining content, Soldy applies targeted iteration — surgical improvements without full restart:
+When the user gives feedback, the level of iteration determines how much of the prior work is preserved. Lower numbers are faster.
 
 | Level | Scope | Example |
-|-------|-------|---------|
+|---|---|---|
 | 1 | Shot-level | "Redo shot 3 with warmer lighting" |
 | 2 | Sequence-level | "Rework the opening sequence" |
 | 3 | Element-level | "Change lighting across all shots" |
-| 4 | Script-level | "Rewrite script and regenerate" |
+| 4 | Script-level | "Rewrite the script and regenerate" |
 | 5 | Creative-level | "New creative direction entirely" |
 
-Lower levels are faster and preserve more of the existing work.
+Default to the lowest level that captures the user's intent. You don't need to specify the level explicitly — describe the change in plain language and Soldy picks the smallest scope it can.
 
----
+## Format adaptation
 
-## Format Adaptation
+Soldy can recompose a creative across aspect ratios *intelligently*, not by cropping: 16:9 → 9:16 reframes and vertically restages; 16:9 → 1:1 centers the composition and extends the background. This is much cheaper than regenerating.
 
-Soldy can recompose a single creative across aspect ratios intelligently (not just cropping):
+## Models in use (for reference)
 
-- 16:9 → 9:16: reframing, vertical restaging
-- 16:9 → 1:1: center composition, background extension
-- Any → Any: smart recomposition with platform-specific adjustments
-
----
-
-## AI Models Used
-
-### Image Generation
-- **Google Gemini 2.0** — photorealistic text-to-image and image-to-image editing
-
-### Video Generation
-- **Kling v2.6 Pro** (default) — reliable I2V/T2V, 5-10s clips
-- **Seedance 2.0** (opt-in) — advanced multi-segment, edit/replace modes, 4-15s. Can be invoked directly via `send_message({ input_mode: "seedance", seedance_reference_url })`, which skips creative direction and drives Seedance 2.0 from a single reference image.
-- **LTX-2** (alternative) — scene extension
-
-### Audio
-- **Music generation** — AI composition with full instrumentation control
-- **Chatterbox TTS/STS** — voice generation and cloning
-- **Whisper STT** — audio transcription
-
-### Post-Processing
-- **Topaz** — image/video upscaling (4K, 8K)
-- **BRIA** — video background removal
-- **DreamActor v2** — character animation/reenactment
-- **Video merge/transitions** — assembly and polish
+- **Image** — Google Gemini 2.0 (photorealistic T2I and I2I edits)
+- **Video** — Kling v2.6 Pro (default), Seedance 2.0 (opt-in, multi-segment / edit / replace), LTX-2 (scene extension)
+- **Audio** — AI music composition, Chatterbox TTS/STS, Whisper STT
+- **Post** — Topaz upscaling, BRIA background removal, DreamActor v2 character animation, video merge / transitions

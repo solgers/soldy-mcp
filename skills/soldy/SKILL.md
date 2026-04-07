@@ -1,237 +1,146 @@
 ---
 name: soldy
-description: "Soldy AI is an autonomous creative production studio that turns product/brand context into broadcast-quality video ads, social ad images, and brand identities. Use this skill when the user wants to: generate video ads for TikTok, YouTube, Instagram, or any platform; create product videos or brand commercials; extract brand identity from a URL; produce social media ad creatives; make narrative/story-driven ads, comedic ads, or emotional ads; create product shots or lifestyle imagery; iterate on creative direction, storyboards, or scripts; manage video generation projects; check generation progress or retrieve final assets. Also triggers on: Soldy, soldy.ai, @soldy_ai/mcp, create_project, send_message, extract_brand, watch_project, get_project_materials, video ad, product video, brand video, TikTok ad, YouTube ad, Instagram Reels, ad creative, storyboard, shot list, aspect ratio, Seedance, Seedance 2.0, seedance mode, image-to-video, animate image, reference image video."
+description: "Soldy AI is a conversational creative agent that turns product/brand context into broadcast-quality video ads, social images, product shots, and brand identities. It is a collaborator you talk with over multiple turns, not a one-shot job runner. Use this skill whenever the user wants to create, refine, or iterate on video ads, product videos, brand commercials, narrative/comedic/emotional ads, social ad creatives, product photography, or brand identities — and whenever they mention TikTok ads, YouTube ads, Instagram Reels, ad creatives, storyboards, shot lists, aspect ratios, brand extraction, or animating images. Also triggers on: Soldy, soldy.ai, @soldy_ai/mcp, create_project, send_message, extract_brand, watch_project, get_project_materials, Seedance, Seedance 2.0, image-to-video, animate image, reference image video."
 ---
 
 # Soldy AI
 
-Soldy is an autonomous creative director — a multi-phase production studio that takes product/brand context and user intent, then autonomously produces scripts, storyboards, and final video/image assets through choreographed production phases with quality gates and user approvals.
+Soldy is a **conversational creative agent**. A Soldy *project* is a *conversation*, not a job ticket. You and the user talk to Soldy over multiple turns, just like you'd talk to a human creative director — they propose, you react, they refine. Brands are persistent memory the conversation can lean on. Iteration is the default mode, not an exception.
 
-**What Soldy produces:**
-- Video ads (TikTok, YouTube, Instagram Reels, Shorts, etc.)
-- Social media ad images
-- Brand identity extraction (colors, tone, positioning)
-- Product photography and lifestyle shots
-- Music and soundtracks for video content
+If you remember nothing else from this skill, remember this: **don't dump the user's first sentence into `send_message` and walk away.** That's the equivalent of forwarding a one-line email to a creative agency and expecting a finished commercial back. It's not how Soldy is designed to be used and it's not how the user experiences Soldy on the web — they land on a chat surface and are *guided into* creation.
 
-**How it works:** You communicate with Soldy through its MCP server (`@soldy_ai/mcp`). The MCP is a bridge — behind it, a full creative production team (director, DP, gaffer, production designer, music director) orchestrates your project through structured phases.
+## The mental model
+
+Think of Soldy as a creative director sitting on the other side of a chat window. Behind that chat there really is a full production team — director, DP, production designer, music director — but you don't talk to them directly. You talk to the director, and the director coordinates the team.
+
+A few consequences of that model:
+
+- **`send_message` is a turn in a conversation, not "submit job".** Multiple `send_message` calls per project is the *normal* case. The project accumulates context — brand, references, locked direction, prior shots — across every turn.
+- **Soldy will pause and ask for things.** Sometimes credits. Sometimes a creative choice between A/B/C directions. Sometimes approval before moving from script to video. When the project status goes to `pause`, it is waiting for the **user**, not for you. Surface the question; don't invent an answer.
+- **It takes minutes, not seconds.** A real production pipeline runs behind the scenes. Tell the user that. Don't sit silently.
+- **Iterate in place.** If the user wants the music changed or shot 3 redone, send another message to the same project. Never create a new project to "fix" something — you'd lose the brand, the color bible, the storyboard, and the character designs.
+
+## What Soldy can do
+
+This is a capability map, not a recipe. Pick what fits the conversation.
+
+- **Brand memory** — extract a brand identity from a product URL (`extract_brand`), then reuse that `brand_id` across any number of projects so colors, tone, and positioning stay consistent.
+- **Generate** — video ads (TikTok / Reels / YouTube / square), product videos, narrative and story ads (comedic, emotional, cultural, conversion modes), social ad images, product photography, and music/soundtracks.
+- **Iterate at any granularity** — re-do a single shot, swap the music, change the tone across all shots, adapt 16:9 → 9:16 with smart recomposition (not just cropping), or rethink the creative direction entirely. Lower-granularity iterations are faster and preserve more of the prior work.
+- **Direct fast-paths for users who already know what they want.** The most important one: **Seedance mode**. If the user has a reference image and just wants it animated into a short video, calling `send_message` with `input_mode: "seedance"` and `seedance_reference_url` skips the entire creative-direction pipeline and drives Seedance 2.0 directly. This is the right call for "animate this image" requests; it would be wrong for "make me a TikTok ad."
+- **Long-running by nature.** Brand extraction is 30–60 seconds. A full video can take several minutes. Use `watch_project` / `watch_brand_task` if your client supports MCP subscriptions; otherwise poll `get_project_status` / `get_brand_task_result` every 5–10 seconds. Either way, keep the user in the loop while you wait.
+
+## Reading the user — pick the depth that fits
+
+The same skill should serve a user with a vague idea *and* a user who arrives with a fully-formed brief. The right interaction depth depends on signals from the user, not on a fixed checklist. Here's how to read those signals:
+
+- **Vague intent** — "I want to make some kind of ad for my coffee shop." The user wants to be guided. Treat this like a kickoff meeting. Offer to extract their brand if they have a URL. Ask the questions a creative director would ask: target platform, length, tone, what the ad is supposed to *do* (awareness? conversion? brand?). When you do call `send_message`, frame it as a starting prompt — and expect Soldy to come back with proposals or questions that you should bring back to the user before continuing.
+- **Concrete brief** — "Make a 15s 9:16 comedic ad for product X, here's the brand_id, here's the photo." The user is ready. Don't drag them through clarifying questions they've already answered. One well-formed `send_message` and start watching. You can still surface Soldy's intermediate decisions, but you don't need to prompt for them.
+- **Reference-driven** — "Animate this product photo into a short loop." Skip the full pipeline. This is what Seedance mode is for.
+- **Mid-conversation refinement** — the user is reacting to something Soldy already produced. Iterate on the same project. Translate their feedback ("the ending feels flat") into an iteration message; don't restart.
+
+You have permission to *choose* the depth. The skill is intentionally not giving you a numbered procedure, because the right procedure depends on what the user actually said.
+
+## What good looks like
+
+When a Soldy result comes back, you can help the user evaluate it instead of just delivering it. Soldy itself scores every output across six dimensions — these are useful as a shared vocabulary for "is this any good?":
+
+| Dimension | Weight | The question it answers |
+|---|---|---|
+| Scroll-stopping power | 25% | Would this stop a thumb mid-scroll? |
+| Message clarity | 20% | Is one viewing enough to understand it? |
+| Emotional resonance | 20% | Does the viewer *feel* something? |
+| Brand fit | 15% | Is it unmistakably on-brand? |
+| Conversion potential | 10% | Will it drive action? |
+| Shareability | 10% | Would someone send this to a friend? |
+
+Rough heuristic Soldy uses internally: 8.0+ ships, 6.5–7.9 polishes, below that revises. Use those as a starting point for your own judgment, not as a hard gate. If the user is happy and you're at 7.4, ship.
+
+## What to do when…
+
+These are judgment cards, not a workflow. Read them as "if you find yourself in this situation, here's how to think about it."
+
+- **The project status is `pause`.** Soldy is waiting on the user, not on you. Read why (credits running out? a creative choice between proposed directions? an approval gate?), bring it to the user in plain language, and only call `continue_project` once they've actually answered.
+- **The user gives feedback on a shot or the music.** Iterate via `send_message` on the same project. The project remembers everything — brand, color bible, characters, prior shots. A new project would lose all of that and force Soldy to rebuild from scratch.
+- **Generation has been running for minutes.** That's normal. Subscribe with `watch_project` if you can; otherwise poll. Don't wait silently — tell the user it's still running and roughly what stage it's at if you can read that from the resource updates.
+- **The user mentions a product URL but you don't have a brand yet.** Offer to `extract_brand` first. Soldy does **not** auto-extract URLs that appear inside a `send_message` text — that step has to be explicit, and you'll get much better output if you do it.
+- **The user says "use this image" or "animate this".** Reach for Seedance mode (`input_mode: "seedance"` + `seedance_reference_url`) instead of triggering the full creative pipeline. It's faster and matches their intent.
+- **The user gave you a one-liner like "make me an ad".** Don't paste it into `send_message`. Ask the questions a human director would ask first. The output from a one-liner will be generic and the user will be disappointed.
+- **You're not sure whether to iterate or restart.** Default to iterate. Restart only when the creative direction itself is wrong (different product, wrong format type, fundamentally different concept). Tone, lighting, music, pacing, and individual shots are all iteration territory.
+
+## Boundaries — what *not* to do
+
+- Don't treat `send_message` as a one-shot job. It's a conversation turn.
+- Don't auto-resolve Soldy's pauses without consulting the user.
+- Don't create a new project to "fix" something in an existing one.
+- Don't skip `extract_brand` and hope Soldy will infer the brand from text in your message.
+- Don't dump a vague user prompt straight into Soldy without first asking the questions a creative director would ask.
+- Don't over-prescribe shot-by-shot direction in your prompt. If you find yourself writing "shot 1: close-up, 3 seconds, fade in", you're directing — you're not delegating, and you're throwing away the value of Soldy's production pipeline. Tell Soldy *what matters and why*; let it handle the cinematography.
+
+## Tool quick reference
+
+Full parameter docs: [references/tools.md](references/tools.md). One-line summaries grouped by purpose:
+
+**Brand memory**
+- `extract_brand(product_url)` — kick off brand extraction from a URL (async, returns `task_id`).
+- `watch_brand_task(task_id)` / `get_brand_task_result(task_id)` — subscribe / poll for the result.
+- `list_brands()` / `create_brand(...)` — find existing brands or create one manually.
+
+**Project lifecycle**
+- `create_project(name, brand_id?, ratio?)` — open a new conversation with Soldy.
+- `list_projects()` / `get_project(project_id)` — find or inspect projects.
+
+**Conversation**
+- `send_message(project_id, content, ratio, material_urls?, brand_id?, input_mode?, seedance_reference_url?)` — a turn in the conversation. `ratio` is required; pass `brand_id` whenever a brand exists; use `input_mode: "seedance"` for direct image-to-video.
+- `list_messages(project_id)` — read the conversation history.
+
+**Monitoring**
+- `watch_project(project_id)` — subscribe to real-time updates (preferred).
+- `get_project_status(project_id)` — poll fallback.
+- `get_project_materials(project_id)` — fetch the produced assets when ready.
+
+**Control**
+- `pause_project` / `continue_project` / `stop_project` — pause for review, resume after a user decision, or stop entirely. Note: Soldy itself sometimes puts a project into `pause`; that's a *user* decision point, not a control you should auto-resolve.
+
+## Aspect ratios
+
+`ratio` is required in `send_message`. Pick by target platform:
+
+| Ratio | Where it fits |
+|---|---|
+| `9:16` | TikTok, Reels, Shorts (vertical mobile) |
+| `16:9` | YouTube, landscape |
+| `1:1` | Instagram / Facebook square feed |
+| `4:3` / `3:4` / `3:2` / `2:3` / `21:9` | Presentations, portrait, photo, ultra-wide cinematic |
+
+After producing one ratio, you can ask Soldy to adapt to others — it intelligently recomposes rather than cropping.
+
+## Materials
+
+Pass references via `material_urls` in `send_message`. Local paths (`./product.jpg`) are auto-uploaded. HTTP and `gs://` URLs are passed through. Images, videos, and audio are all supported. Batch them in a single message rather than dribbling them in one at a time.
+
+## Agent compatibility
+
+| Client | Subscriptions | Strategy |
+|---|---|---|
+| Claude Code / Desktop | Full | Use `watch_project` and `watch_brand_task`. |
+| Cursor | Sometimes | Try subscriptions first; fall back to polling. |
+| Codex / Gemini CLI | None | Poll `get_project_status` every 5–10 seconds. |
 
 ## Prerequisites
 
-The Soldy MCP server (`@soldy_ai/mcp`) must be installed and configured with a valid API key. If Soldy tools (`create_project`, `send_message`, `extract_brand`, etc.) are not available in your current session, the MCP server is not installed yet.
-
-**To install:** Follow the `soldy-mcp-setup` skill — it covers Claude Code, Claude Desktop, Cursor, Codex, and Gemini CLI. You can also install it directly:
+The Soldy MCP server (`@soldy_ai/mcp`) must be installed and configured with a valid API key. If `create_project`, `send_message`, etc. are not available in your session, install via the `soldy-mcp-setup` skill or directly:
 
 ```bash
 npx skills add solgers/soldy-mcp@soldy-mcp-setup
 ```
 
-## When to Use Soldy
+## Deep-dive references
 
-| User Intent | What Soldy Does |
-|-------------|----------------|
-| "Make a TikTok ad for my product" | Full video pipeline: brand extraction → creative direction → script → storyboard → video → music → final cut |
-| "I need a product video" | Product-centric commercial with 4-view reference, cinematography, sound design |
-| "Create a funny ad / emotional ad" | Narrative pipeline with tension architecture, cast design, escalation curves |
-| "Extract my brand from this URL" | Auto-extract colors, tone, positioning, visual identity from product pages |
-| "Make social media creatives" | Static ad images optimized for Instagram, Facebook, TikTok |
-| "Adapt this to different platforms" | Format adaptation: 16:9 → 9:16 → 1:1 with smart recomposition |
-| "Improve this video / change the style" | Targeted iteration at shot, sequence, or creative-direction level |
-| "Animate this image / turn this image into a video" / "Use Seedance" | Direct **Seedance 2.0** mode — pass `input_mode: "seedance"` + `seedance_reference_url` to `send_message`, skipping the full creative pipeline |
-
-## Core Workflow
-
-### Quick Start (3 steps)
-
-```
-1. create_project(name) → project_id
-2. send_message(project_id, content, ratio, material_urls?, brand_id?)
-3. watch_project(project_id) → wait for completion → get_project_materials(project_id)
-```
-
-### Full Workflow (recommended)
-
-```
-Step 1: Brand Setup (when user has a product URL)
-  extract_brand(product_url) → task_id
-  watch_brand_task(task_id) → wait → get brand_id
-  ↳ Extracts: brand colors, tone, positioning, visual identity
-
-Step 2: Create Project
-  create_project(name, brand_id?, ratio?)
-
-Step 3: Generate
-  send_message(project_id, content, ratio, material_urls?, brand_id?)
-  ↳ Behind the scenes, Soldy runs the full production pipeline
-
-Step 4: Monitor
-  watch_project(project_id) → wait for resource notifications
-  Status guide:
-    "running"   → production in progress (can take several minutes)
-    "pause"     → credits/approval needed → continue_project(project_id)
-    "error"     → check error, retry with new send_message
-    "completed" → assets ready
-
-Step 5: Get Results
-  get_project_materials(project_id)
-  ↳ Returns: videos, images, audio, documents with URLs and thumbnails
-
-Step 6: Iterate
-  send_message(project_id, "adjust style / change duration / redo music / ...")
-  ↳ Soldy refines without starting from scratch
-```
-
-## What Happens Behind the MCP
-
-When you call `send_message`, Soldy's agent runs a multi-phase production pipeline:
-
-### Phase 1: Creative Direction
-A simulated creative team (Product Manager, Visual Artist, Creative Director, Director) diagnoses the product and locks ONE production direction — including video thesis, product role, environment strategy, rhythm shape, and a "killer shot" concept.
-
-### Phase 2: Visual Foundation
-- **Product Four-View**: Standardized multi-angle product reference (locks geometry, colors, materials)
-- **Character Design**: If characters needed — memorable via contrast principle (gap between expectation and reality)
-- **Color Bible**: Mood board + 4 HEX palette (Primary, Secondary, Accent, Shadow) — carried through all downstream generation
-
-### Phase 3: Script & Storyboard
-- **Shot Script Table**: Per-shot cinematography (scale, angle, lens, focus, composition, movement, lighting, sound, VO)
-- **DP Selection**: Matched to creative direction (Doyle, Lubezki, Hoytema, Fraser, etc.)
-- **Storyboard Frames**: Generated per shot using reference images as anchors
-
-### Phase 4: Video Generation
-- Multi-route concurrent I2V/T2V via **Kling v2.6 Pro** (default)
-- Alternative engines: **Seedance 2.0** (advanced, opt-in — can also be invoked directly via `send_message({ input_mode: "seedance", seedance_reference_url })` to skip creative direction and drive the model from a single reference image), **LTX-2** (extension)
-- Color consistency enforced via HEX anchors from Color Bible
-
-### Phase 5: Audio & Music
-- AI-composed soundtrack — two strategies:
-  - **Beat-Driven** (product videos): unified tone, steady rhythm
-  - **Cinematic** (story ads): emotional dynamics following plot arc
-
-### Phase 6: Final Delivery & Quality Gate
-- Video merge (all clips + music)
-- **6-Dimension Evaluation**: Scroll-stopping power (25%), Message clarity (20%), Emotional resonance (20%), Brand fit (15%), Conversion potential (10%), Shareability (10%)
-- Score 8.0+ → ship; 6.5-7.9 → minor polish; <6.5 → revise
-
-## Production Types
-
-### Product Video (PV)
-Product-centric showcase. No characters by default. Best for e-commerce launches, brand hero videos, demonstration ads.
-
-### Narrative / Story Video
-Character-driven content with four narrative intent modes:
-
-| Intent | Style | Best For |
-|--------|-------|----------|
-| Emotional | Value-change driven, slow-burn arcs | Brand storytelling, testimonials |
-| Comedic | Chaos escalation, 10x character contrast | Viral content, social sharing |
-| Cultural | Zeitgeist-responsive, meme potential | Trend-riding, cultural moments |
-| Conversion | Barrier-dismantling, urgency-building | Direct-response, ROAS-focused |
-
-Soldy auto-detects the narrative intent and applies matching tension architecture, escalation curves, and cast design intensity.
-
-### Social Ad Images
-Static ad creatives for Instagram, Facebook, TikTok. Pipeline: reference images → composition → copy generation → image render → quality gate.
-
-### Product Shots
-E-commerce product photography, lifestyle staging, multi-angle presentations.
-
-## Aspect Ratio Guide
-
-Choose `ratio` based on target platform:
-
-| Ratio | Platform | Use Case |
-|-------|----------|----------|
-| `9:16` | TikTok, Reels, Shorts | Vertical mobile-first |
-| `16:9` | YouTube, landscape | Standard widescreen |
-| `1:1` | Instagram, Facebook | Square social feed |
-| `4:3` | Presentations | Traditional format |
-| `3:4` | Pinterest, portrait | Vertical portrait |
-| `3:2` | Photography | Standard photo |
-| `2:3` | Tall vertical | Mobile portrait |
-| `21:9` | Cinema, ultra-wide | Cinematic premium |
-
-**Format Adaptation**: After generating one ratio, ask Soldy to adapt to others — it intelligently recomposes (not just crops).
-
-## Writing Effective Prompts
-
-### Product Video Prompt
-```
-Create a 20-second product video for [product name].
-Focus on [key feature/benefit].
-Target platform: TikTok.
-Tone: premium/minimal.
-```
-
-### Story Ad Prompt
-```
-Create a funny 15-second ad for [product].
-A [character type] discovers [product] in [unexpected situation].
-Target: Instagram Reels.
-```
-
-### Brand Video Prompt
-```
-Create a brand manifesto video for [brand].
-Show the brand's origin story and values.
-30 seconds, cinematic style.
-Target: YouTube.
-```
-
-### Iteration Prompt
-```
-Redo shot 3 with warmer lighting.
-Change the music to something more upbeat.
-Make the ending more dramatic.
-Adapt this to 9:16 for TikTok.
-```
-
-## Materials & File Handling
-
-Pass reference materials via `material_urls` in `send_message`:
-
-- **Local files** (`./product.jpg`, `/path/to/video.mp4`) — auto-uploaded
-- **HTTP URLs** (`https://example.com/photo.jpg`) — passed directly
-- **GCS URLs** (`gs://bucket/file`) — passed directly
-
-Supported: images, videos, audio files. Multiple files can be passed as an array.
-
-## Key Rules
-
-1. **`ratio` is required** in `send_message` — always choose based on target platform
-2. **Always pass `brand_id`** when a brand exists — it provides color/tone/positioning context
-3. **Use `extract_brand` explicitly** — product URLs in text are NOT auto-extracted
-4. **Prefer subscriptions** — `watch_project` over polling `get_project_status`
-5. **Brand extraction takes 30-60s** — always monitor async with `watch_brand_task`
-6. **Complex videos take minutes** — the agent runs full production pipeline (creative → script → storyboard → video → music → merge)
-7. **Iterate, don't restart** — send new messages to the same project to refine
-
-## Agent Compatibility
-
-| Agent | Subscriptions | Monitoring Strategy |
-|-------|--------------|-------------------|
-| Claude Code / Desktop | Full support | Use `watch_project` and `watch_brand_task` for real-time updates |
-| Cursor | May not support | Try `watch_project` first; fall back to polling `get_project_status` every 5-10s |
-| Codex | Not supported | Poll `get_project_status` every 5-10s until status is `completed` or `error` |
-| Gemini CLI | Not supported | Poll `get_project_status` every 5-10s until status is `completed` or `error` |
-
-When subscriptions are not available, use this polling pattern:
-```
-send_message(project_id, content, ratio)
-loop:
-  wait 5-10 seconds
-  get_project_status(project_id)
-  if status == "completed" → get_project_materials(project_id) → done
-  if status == "error" → report error → done
-  if status == "pause" → continue_project(project_id)
-```
-
-## Deep-Dive References
-
-| Reference | When to Read |
-|-----------|-------------|
-| [references/tools.md](references/tools.md) | Full parameter reference for all 17 MCP tools |
-| [references/resources.md](references/resources.md) | Resource URIs, subscription patterns, real-time monitoring |
-| [references/workflows.md](references/workflows.md) | Detailed production pipeline phases, iteration levels, quality gates |
-| [references/best-practices.md](references/best-practices.md) | Prompt engineering, workflow patterns, anti-patterns, performance tips |
-| [references/troubleshooting.md](references/troubleshooting.md) | Error codes, common issues, and fixes |
+| Reference | When to read it |
+|---|---|
+| [references/tools.md](references/tools.md) | Full parameter reference for all MCP tools. |
+| [references/resources.md](references/resources.md) | MCP resource URIs and subscription patterns. |
+| [references/workflows.md](references/workflows.md) | What Soldy does internally — useful when you need to *explain* Soldy to the user, not as a procedure to follow. |
+| [references/best-practices.md](references/best-practices.md) | Judgment heuristics for prompts, iteration, and reading project state. |
+| [references/troubleshooting.md](references/troubleshooting.md) | Error codes and common fixes. |

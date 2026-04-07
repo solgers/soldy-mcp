@@ -154,50 +154,71 @@ If subscription is not available in your client, you can still use:
 - \`get_project_materials\` — get generated assets
 `;
 
-const WORKFLOW_PROMPT = `# Soldy Video Ad Workflow
+const WORKFLOW_PROMPT = `# Working with Soldy
 
-## Quick Start (3 steps)
-1. create_project → get project_id
-2. send_message with your prompt + material_urls (product images/videos)
-3. watch_project to subscribe → read resources when notified
+Soldy is a **conversational creative agent**, not a one-shot job runner. A Soldy
+*project* is a *conversation*. You and the user talk to Soldy over multiple turns,
+just like you would talk to a human creative director — they propose, you react,
+they refine. Brands are persistent memory the conversation can lean on. Iteration
+is the default, not an exception.
 
-## Full Workflow with Brand
+The single most important rule: **don't dump the user's first sentence into
+send_message and walk away.** That is the equivalent of forwarding a one-line
+email to a creative agency and expecting a finished commercial back. It is not
+how Soldy is designed to be used.
 
-### Step 1: Brand Setup (recommended for best results)
-If the user provides a product URL or brand name:
-- Use extract_brand with the product/brand URL to auto-extract brand identity
-- Use watch_brand_task to subscribe for completion (preferred) or poll get_brand_task_result
-- This gives the agent brand context (colors, tone, positioning)
+## Mental model
 
-If user already has brands: list_brands to find the right brand_id
+- send_message is a *turn in a conversation*, not "submit job". Multiple turns
+  per project is the normal case — the project accumulates brand, references,
+  locked direction, and prior shots across every turn.
+- Soldy will sometimes pause and ask for things: credits, an A/B/C creative
+  pick, an approval gate. When project status is "pause", Soldy is waiting on
+  the **user**, not on you. Surface the question; do not invent an answer.
+- Generation takes minutes, not seconds. Use watch_project / watch_brand_task
+  if your client supports subscriptions; otherwise poll every 5–10 seconds.
+  Either way, keep the user informed while you wait.
+- Iterate in place. If the user wants the music changed or shot 3 redone, send
+  another message to the same project. Never create a new project to "fix"
+  something — you lose the brand, the color bible, the storyboard, and the
+  characters.
 
-### Step 2: Create Project
-- create_project with a descriptive name
+## Pick the depth that fits the user
 
-### Step 3: Send Message with Materials
-- send_message with:
-  - content: describe what to generate
-  - ratio (required): "9:16" (TikTok/Reels/Shorts), "16:9" (YouTube), "1:1" (Instagram), "4:3", "3:4", "3:2", "2:3", "21:9" (ultra-wide)
-  - material_urls: product images, videos (local paths auto-uploaded)
-  - brand_id: the brand from step 1
+The right interaction depth depends on what the user said, not on a fixed
+checklist. Read the signals:
 
-### Step 4: Monitor Progress (prefer subscription over polling)
-- **Preferred**: watch_project → wait for resource update notifications
-- **Fallback**: get_project_status to poll status
-- If status is "pause": agent needs credits or approval → use continue_project
-- If status is "error": check the error, retry with send_message
-- If status is "completed": proceed to step 5
+- **Vague** ("make me an ad for my coffee shop") → guide them. Offer to
+  extract their brand if they have a URL. Ask the questions a creative
+  director would ask: platform, length, tone, what the ad should *do*. Bring
+  proposals back to the user before committing.
+- **Concrete** ("15s 9:16 comedic ad for product X, here is brand_id and the
+  photo") → fast-path. One well-formed send_message and watch.
+- **Reference-driven** ("animate this image") → use Seedance mode directly:
+  send_message with input_mode: "seedance" + seedance_reference_url. This
+  skips creative direction entirely and is the right call for "animate this"
+  intents.
+- **Mid-conversation refinement** → translate the user's feedback into an
+  iteration message on the same project. Don't restart.
 
-### Step 5: Get Results
-- Read resource: soldy://project/{id}/materials
-- Or use tool: get_project_materials
+## Tool quick reference
 
-### Step 6: Iterate
-- send_message again to refine, change style, adjust duration, etc.
+- Brand memory: extract_brand → watch_brand_task → reuse brand_id forever.
+- Project lifecycle: create_project, list_projects, get_project.
+- Conversation: send_message (ratio is required; pass brand_id when a brand
+  exists; use input_mode "seedance" for direct image-to-video).
+- Monitoring: watch_project (preferred) or get_project_status (poll fallback);
+  get_project_materials when ready.
+- Control: pause_project, continue_project, stop_project. Note: Soldy itself
+  may put a project into "pause" — that's a *user* decision point, not a
+  control you should auto-resolve.
 
-## Tips
-- Always pass brand_id in send_message when a brand exists
-- ratio is required in send_message — choose based on target platform
-- Product URLs in text are NOT automatically extracted — use extract_brand explicitly
-- Local file paths (./image.jpg, /path/to/video.mp4) are uploaded automatically
-- Use watch_project / watch_brand_task for real-time updates instead of polling`;
+## Boundaries
+
+- Don't treat send_message as a one-shot job.
+- Don't auto-resolve Soldy's pauses without the user.
+- Don't restart projects to fix them — iterate.
+- Don't expect Soldy to auto-extract product URLs from message text. Call
+  extract_brand explicitly.
+- Don't write shot-by-shot prompts. Describe outcomes; Soldy handles
+  cinematography.`;

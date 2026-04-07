@@ -1,176 +1,141 @@
-# Soldy — Best Practices
+# Soldy — Judgment Heuristics
 
-## Prompt Engineering
+The main SKILL.md gives you the mental model. This document is the deeper-cut version: a set of heuristics for the recurring judgment calls you'll make while having a conversation with Soldy on behalf of a user. None of this is a script. It's all "here's how to think about it."
 
-### Be Specific About What Matters, Open About the Rest
+## Reading the user's readiness
 
-Soldy has a full creative team behind it — creative director, DP, production designer. Give it the constraints that matter to you and let it handle the creative execution.
+The single most important judgment call is: how prepared is the user, and how much should I push back vs. just execute? Some signals to read:
 
-**Effective prompt structure:**
+**Signals the user wants to be guided:**
+- Vague intent ("make me an ad", "something cool for my brand", "help me with marketing video").
+- No mention of platform, length, tone, or audience.
+- They're describing their business, not their creative.
+- They ask "what should I do?" instead of "do this."
+- They give you a product URL but no brand_id and no images.
+
+When you see these, slow down. Treat the first message as a kickoff conversation, not a brief. Offer to extract their brand if they have a URL. Ask one or two of the questions a creative director would ask — what platform, what feeling, what's the ad supposed to *do* — and bring those back to the user before you call `send_message`. Your goal at this stage is to help the user discover what they actually want, not to start cranking out video.
+
+**Signals the user is ready to fast-path:**
+- Concrete length, ratio, tone, and platform stated up front.
+- A `brand_id` or a clear brand context.
+- Reference images attached or linked.
+- They've used Soldy before and know the vocabulary.
+
+When you see these, don't drag them through clarifying questions. Compose one well-formed `send_message`, start watching, and surface intermediate decisions only when Soldy itself pauses for input.
+
+**Signals it's a Seedance fast-path:**
+- "Animate this image."
+- "Turn this photo into a short loop."
+- "Make a 5-second video from this reference."
+
+Skip the creative pipeline entirely with `input_mode: "seedance"` and `seedance_reference_url`.
+
+## Phrasing a `send_message` so Soldy treats it as a turn
+
+A good `send_message` body reads like something you'd say to a creative director, not like a JIRA ticket. State *what matters and why*, leave the *how* to Soldy.
+
+A useful structure when you're starting a project from a brief:
+
 ```
-What: [product/brand] + [content type]
-Platform: [target platform + ratio]
-Tone: [one or two words]
-Key constraint: [the ONE thing that must be right]
+What:     [product / brand] + [content type]
+Platform: [target + ratio]
+Tone:     [one or two words]
+Anchor:   [the ONE thing that must be right]
 ```
 
-**Example — Good:**
+**Good:**
+
 ```
 Create a 15-second product video for the Aero wireless earbuds.
 Hero the noise-cancellation feature.
-Target: TikTok (9:16).
-Tone: sleek, premium.
+Target: TikTok (9:16). Tone: sleek, premium.
 ```
 
-**Example — Over-prescriptive (avoid):**
+**Over-prescriptive (avoid):**
+
 ```
 Create a video. Shot 1: close-up of earbuds on white background, 3 seconds,
 fade in from black. Shot 2: person putting earbuds in, medium shot, 4 seconds.
-Shot 3: show the noise cancellation icon with text overlay...
+Shot 3: noise cancellation icon with text overlay…
 ```
 
-The second example constrains Soldy's creative direction so heavily that you lose the value of its production pipeline. If you need that level of control, you're directing — not delegating.
+The second one isn't using Soldy — it's bypassing the production pipeline that makes Soldy worth calling in the first place. If you find yourself writing shot lists in the prompt, stop and ask: *am I directing, or am I delegating?* If the user genuinely wants that level of micro-control, that's fine — but it should be a deliberate choice, not the default.
 
-### Platform-Specific Tips
-
-| Platform | What to Specify | What Soldy Handles |
-|----------|----------------|-------------------|
-| TikTok | Hook in first 2 seconds, 9:16, keep under 30s | Scroll-stopping opener, trend-aware pacing |
-| YouTube | Can be longer (30-60s), 16:9 | Narrative arc, retention-optimized structure |
-| Instagram Reels | 15-30s, 9:16, visual-first | Eye-catching transitions, music sync |
-| Instagram Feed | 1:1, static or short video | Composition for square format |
-
-### Prompt Templates by Production Type
-
-**Product Video (PV):**
-Focus on product features, materials, use cases. No characters needed.
-```
-[Duration]-second product video for [product].
-Highlight: [feature].
-Platform: [platform] ([ratio]).
-Tone: [tone].
-```
-
-**Story / Narrative Ad:**
-Focus on emotional setup. Let Soldy design characters and story arc.
-```
-[Duration]-second [comedic/emotional/cultural] ad for [product].
-[One-sentence scenario or setup].
-Platform: [platform] ([ratio]).
-```
-
-**Brand Video:**
-Focus on brand values and positioning. Often longer format.
-```
-Brand manifesto video for [brand name].
-Core message: [brand promise or value].
-[Duration] seconds, [cinematic/documentary/energetic] style.
-Platform: [platform] ([ratio]).
-```
-
----
-
-## Workflow Patterns
-
-### Brand-First Pattern (Recommended)
-
-Always extract brand identity before generating content. The brand provides color palette, tone, positioning — without it, Soldy generates in a vacuum.
+When you're iterating, the body looks different. Plain language is best:
 
 ```
-1. extract_brand(product_url) → task_id
-2. watch_brand_task(task_id) → wait → brand_id
-3. create_project(name, brand_id)
-4. send_message(project_id, content, ratio, brand_id=brand_id)
+Redo shot 3 with warmer lighting.
+Make the music more upbeat.
+Adapt this to 9:16 for TikTok.
 ```
 
-Skip only when the user explicitly has no brand/product URL and wants a generic creative.
+You don't need to specify the iteration level. Describe the change in natural language and Soldy will pick the smallest scope that captures it.
 
-### Multi-Variant Production
+## Reading project state
 
-Generate multiple variants from one brand setup — different platforms, tones, or angles:
+`get_project_status` (or the resource notification from `watch_project`) tells you what to do next. Map status to action:
 
-```
-1. Extract brand once
-2. Create project A: "TikTok product showcase" (9:16)
-3. Create project B: "YouTube brand story" (16:9)
-4. Create project C: "Instagram carousel" (1:1)
-```
+| Status | What it means | What to do |
+|---|---|---|
+| `running` | Soldy is working. | Keep watching. Tell the user it's still going. |
+| `pause` | Soldy is waiting on the *user* (credits, an A/B/C creative pick, an approval gate). | Read the reason, surface it to the user in plain language, and only call `continue_project` after they answer. |
+| `error` | Something went wrong. | Read the error. Most errors are recoverable with a refined `send_message`. |
+| `completed` | Assets are ready. | `get_project_materials` and show the user. |
 
-Each project reuses the same `brand_id`, so all outputs share consistent brand identity.
+The `pause` case is the most commonly mishandled. It is **not** a "press any key to continue" prompt. It's a real decision point that the user — not you — should make.
 
-### Iteration Pattern
+## Iteration vs. restart
 
-Iteration is cheaper than restarting. Soldy preserves project context — storyboards, color bible, character designs — across messages.
+Default to iteration. The project carries the brand, the color bible, the character designs, the storyboards, and all the prior shots. Throwing that away is expensive in both credits and quality.
 
-**When to iterate (same project):**
+**Iterate (same project) when:**
 - Adjusting individual shots
 - Changing music or audio
 - Tweaking lighting, color, pacing
 - Adapting to a different ratio
 - Refining the script
 
-**When to restart (new project):**
-- Completely different creative direction
-- Different product entirely
-- Switching from PV to narrative (or vice versa)
+**Restart (new project) only when:**
+- The creative direction is fundamentally wrong
+- It's a different product
+- You're switching production type (e.g. PV → narrative)
 
-### Monitoring Strategy
+A useful test: if the user says "no, I meant…", iterate. If the user says "actually, forget that, what if we did…", consider whether restart is genuinely needed or whether it's still a creative-level (Level 5) iteration on the same project.
 
-```
-Preferred:  watch_project(project_id)  ← real-time, no polling
-Fallback:   loop { get_project_status(project_id) } every 5-10s
+## Knowing when to converge vs. branch
 
-Preferred:  watch_brand_task(task_id)   ← auto-stops on completion
-Fallback:   loop { get_brand_task_result(task_id) } every 5s
-```
+After a few rounds of iteration, you'll notice one of two patterns:
 
-Use the preferred approach unless your agent doesn't support MCP resource subscriptions.
+**Converging** — each round addresses a smaller, more specific issue. Music, then a shot, then the ending beat. Keep going. This is the productive case.
 
----
+**Diverging** — each round contradicts the previous one. The user asks for warmer lighting, then cooler, then warmer again. This usually means the creative direction itself isn't working and the user is searching for something the current direction can't deliver. When you spot this, surface it to the user explicitly: "we've been going back and forth on lighting — do you want to try a different creative direction?" That's a Level 5 iteration.
 
-## Common Anti-Patterns
+## Surfacing Soldy's questions to the user
 
-### Creating New Projects to Iterate
+When Soldy proposes A/B/C creative directions and pauses, your job is to translate Soldy's proposals into language the user can actually decide on. Don't just paste the raw output. Pull out the *concept* of each option in one sentence:
 
-**Wrong:** Create a new project every time you want a change.
-**Right:** Send another `send_message` to the same project. Soldy refines without losing context.
+> Soldy proposed three directions:
+> - **A**: Premium and minimal — single hero shot, slow reveal.
+> - **B**: Energetic and social — fast cuts, faces, movement.
+> - **C**: Story-led — a 10-second mini-narrative around the product.
+> Which feels closest to what you want?
 
-### Putting Product URLs in Text Only
+Then, once they pick, send a single `send_message` saying which one to lock and resume. Don't auto-pick to "save the user a step" — the picks are why they're using Soldy.
 
-**Wrong:** `send_message(project_id, "Check out https://example.com/product and make a video")`
-**Right:** `extract_brand("https://example.com/product")` → get `brand_id` → pass to `send_message`
+## Performance heuristics
 
-Product URLs in text are NOT automatically processed for brand extraction.
+- **Extract brand once, reuse forever.** A `brand_id` is permanent across projects. Don't re-extract.
+- **Batch materials.** Pass all reference images/videos in one `material_urls` array, not in a series of messages.
+- **Let generation finish.** Don't interrupt mid-generation to refine — the work in flight is wasted.
+- **Pause if the user wants time to review.** `pause_project` is fine when *you* (or the user) want to stop, distinct from Soldy's own pause-for-input. Resume with `continue_project`.
+- **Subscribe over poll.** `watch_project` and `watch_brand_task` push updates and let you skip the polling loop entirely. Fall back to polling only when the client doesn't support subscriptions.
 
-### Polling When Subscriptions Are Available
+## Common anti-patterns
 
-**Wrong:** Tight polling loop with `get_project_status` every 2 seconds.
-**Right:** `watch_project(project_id)` — you get notified on status changes, new messages, and new materials.
-
-### Skipping `brand_id`
-
-**Wrong:** `send_message(project_id, content, ratio)` when a brand exists.
-**Right:** `send_message(project_id, content, ratio, brand_id=brand_id)` — always pass it.
-
-Without `brand_id`, the generated content may not match the brand's color palette, tone, or positioning.
-
-### Over-Prescriptive Prompts
-
-**Wrong:** Specifying every shot, camera angle, and transition in your prompt.
-**Right:** Describe the outcome you want (tone, key message, platform) and let Soldy's creative direction engine handle the cinematography.
-
-Soldy's production value comes from its multi-phase creative process. Over-constraining it is like hiring a cinematographer and then telling them exactly where to point the camera.
-
----
-
-## Performance Tips
-
-1. **Extract brand once, reuse everywhere** — the `brand_id` is permanent. No need to re-extract for the same product.
-
-2. **Batch materials in a single `send_message`** — pass all reference images/videos in one `material_urls` array rather than sending multiple messages.
-
-3. **Choose the right iteration level** — shot-level tweaks (Level 1) are fast; creative-level restarts (Level 5) trigger the full pipeline again. See [workflows.md](workflows.md) for the iteration level table.
-
-4. **Let generation complete before iterating** — wait for `completed` status before sending refinement messages. Interrupting mid-generation wastes credits and processing time.
-
-5. **Use `pause_project` strategically** — if you need time to review intermediate results, pause instead of letting the agent continue. Resume with `continue_project` when ready.
+- **Pasting the user's first sentence into `send_message`.** Almost always wrong for vague intents. Ask first.
+- **Creating a new project to make a change.** Loses everything. Iterate in place.
+- **Auto-resolving `pause` status.** Soldy is waiting on the user. Don't decide for them.
+- **Putting product URLs in message text and hoping.** They are not auto-extracted. Use `extract_brand` explicitly.
+- **Forgetting `brand_id`.** When a brand exists, always pass it — otherwise the output won't match the brand.
+- **Polling every 2 seconds.** Use `watch_project`. If you must poll, 5–10 seconds is plenty.
+- **Writing shot-by-shot prompts.** You're directing instead of delegating. Describe outcomes; let Soldy handle cinematography.
