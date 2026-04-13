@@ -143,7 +143,7 @@ export function registerProjectTools(
     "get_project_status",
     `Get project status and latest run activity.
 
-For long-running jobs, prefer watch_project(project_id) to subscribe for real-time status updates via resource notifications instead of polling this tool. You can also read the resource URI soldy://project/{project_id}/status directly.
+Quick status check. For blocking workflow, prefer \`chat\` which waits for completion automatically. For async follow-up, use \`get_updates\`.
 
 Status meanings:
 - ready: waiting for send_message

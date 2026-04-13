@@ -241,9 +241,13 @@ export class SoldyAPIClient {
   }
 
   /** Get the WebSocket URL for this API. */
-  getWebSocketUrl(apiKey: string): string {
+  getWebSocketUrl(apiKey: string, clientId?: string): string {
     const wsUrl = this.baseUrl.replace(/^http/, "ws");
-    return `${wsUrl}/ws?api_key=${encodeURIComponent(apiKey)}`;
+    let url = `${wsUrl}/ws?api_key=${encodeURIComponent(apiKey)}`;
+    if (clientId) {
+      url += `&client_id=${encodeURIComponent(clientId)}`;
+    }
+    return url;
   }
 
   async uploadFile(

@@ -35,22 +35,15 @@ export function registerMessageTools(
 ) {
   server.tool(
     "send_message",
-    `Send a message to the project agent to start or continue generation.
+    `Send a message to the project agent (fire-and-forget). Returns immediately after sending.
 
-Required: ratio — the video aspect ratio. Choose based on target platform:
-- 9:16 → TikTok, Reels, Shorts (vertical)
-- 16:9 → YouTube, landscape video
-- 1:1 → Instagram, square
-- 4:3, 3:4, 3:2, 2:3, 21:9 → other formats
+**For most use cases, prefer \`chat\` instead** — it sends the message AND waits for the complete response in one call.
 
-Also supports:
-- material_urls: local file paths (auto-uploaded), GCS URLs, or external http URLs
-- brand_id: pass for brand-aware generation (get from list_brands or extract_brand)
-- input_mode: "agent" (default, full production pipeline) or "seedance" (direct Seedance 2.0 video generation from a single reference image — faster, lower-level, no creative direction phase)
-- seedance_reference_url: reference image for Seedance 2.0 mode. Required when input_mode="seedance". Accepts a local file path (auto-uploaded), GCS URL, or http URL. In seedance mode, \`content\` may be empty to let the agent build the prompt from the reference.
+Use \`send_message\` only when you want async control: send the message, do other work, then call \`get_updates(project_id)\` to check for results later.
 
-The agent starts processing and project status becomes "running".
-After sending, use watch_project(project_id) to subscribe for real-time status/message/material updates. Alternatively, poll get_project_status.`,
+Required: ratio — the video aspect ratio (9:16, 16:9, 1:1, 4:3, 3:4, 3:2, 2:3, 21:9).
+
+Also supports material_urls, brand_id, input_mode ("agent"/"seedance"), and seedance_reference_url.`,
     {
       project_id: z.string(),
       content: z
@@ -175,7 +168,7 @@ After sending, use watch_project(project_id) to subscribe for real-time status/m
         content: [
           {
             type: "text" as const,
-            text: `Message sent${matInfo}${brandInfo}${modeInfo}, ratio: ${ratio}. Status: ${resp.data.status}\nUse watch_project to subscribe for updates, or poll with get_project_status.`,
+            text: `Message sent${matInfo}${brandInfo}${modeInfo}, ratio: ${ratio}. Status: ${resp.data.status}\nUse get_updates(project_id) to check for results, or get_project_status for a quick status check.`,
           },
         ],
       };

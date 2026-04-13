@@ -12,13 +12,20 @@ if (!apiKey) {
 
 const apiUrl = process.env.SOLDY_API_URL ?? "https://api.soldy.ai";
 
-const { server, bridge } = createServer(apiUrl, apiKey);
+const { server, connection } = createServer(apiUrl, apiKey);
 const transport = new StdioServerTransport();
 
 await server.connect(transport);
 
-// Attach bridge to the low-level Server for sending notifications
-bridge.setServer(server.server);
-
 // Log to stderr (stdout is reserved for JSON-RPC)
 console.error(`Soldy MCP server running (API: ${apiUrl})`);
+
+// Graceful shutdown
+const shutdown = () => {
+  console.error("[Soldy MCP] Shutting down...");
+  connection.disconnect();
+  process.exit(0);
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

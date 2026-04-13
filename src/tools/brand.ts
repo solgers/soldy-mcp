@@ -96,7 +96,9 @@ export function registerBrandTools(server: McpServer, client: SoldyAPIClient) {
     "extract_brand",
     `Extract brand identity from a product URL or website URL. This is IMPORTANT — when the user provides a product page URL, call this BEFORE create_project to give the agent brand context (colors, tone, positioning).
 
-Returns a task_id. Use watch_brand_task(task_id) to subscribe for completion notifications (preferred), or poll get_brand_task_result. Usually takes 30-60s. Once finished, use the returned brand_id in send_message options.`,
+With wait=true (default), blocks until extraction completes (usually 30-60s) and returns the brand_id directly. With wait=false, returns a task_id immediately — use get_brand_task_result to poll status.
+
+Once finished, use the returned brand_id in chat or send_message options.`,
     {
       content: z
         .string()
@@ -104,8 +106,14 @@ Returns a task_id. Use watch_brand_task(task_id) to subscribe for completion not
           "Product page URL, brand website URL, or text describing the brand",
         ),
       brand_id: z.string().optional(),
+      wait: z
+        .boolean()
+        .optional()
+        .describe(
+          "Wait for extraction to complete (default true). Set false for fire-and-forget.",
+        ),
     },
-    async ({ content, brand_id }) => {
+    async ({ content, brand_id, wait }) => {
       const wsId = await client.getDefaultWorkspaceId();
       const resp = await client.post<BrandTask>("/public/brand/task", {
         content,
@@ -118,11 +126,67 @@ Returns a task_id. Use watch_brand_task(task_id) to subscribe for completion not
           isError: true,
         };
 
+      const taskId = resp.data.id;
+
+      // Fire-and-forget mode
+      if (wait === false) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Brand extraction started (task: \`${taskId}\`). Poll with get_brand_task_result. Usually takes 30-60s.`,
+            },
+          ],
+        };
+      }
+
+      // Blocking mode: poll until complete (max ~2 minutes)
+      const maxAttempts = 40;
+      const pollIntervalMs = 3000;
+
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+
+        try {
+          const taskResp = await client.post<BrandTask[]>(
+            "/public/brand/task/result",
+            { task_ids: [taskId], workspace_id: wsId },
+          );
+          const task = taskResp.data?.[0];
+          if (!task) continue;
+
+          if (task.status === "finished") {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Brand extracted: ID \`${task.brand_id}\`\nView: https://soldy.ai/app/brands/${task.brand_id}`,
+                },
+              ],
+            };
+          }
+          if (task.status === "failed") {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Extraction failed: ${task.reason || "unknown"}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+          // Still running, continue polling
+        } catch {
+          // Ignore transient errors, keep polling
+        }
+      }
+
       return {
         content: [
           {
             type: "text" as const,
-            text: `Brand extraction started (task: \`${resp.data.id}\`). Use watch_brand_task to subscribe for completion, or poll with get_brand_task_result. Usually takes 30-60s.`,
+            text: `Extraction still running after 2 minutes (task: \`${taskId}\`). Use get_brand_task_result to check status.`,
           },
         ],
       };
@@ -131,7 +195,7 @@ Returns a task_id. Use watch_brand_task(task_id) to subscribe for completion not
 
   server.tool(
     "get_brand_task_result",
-    "Check brand extraction progress and result. For real-time updates, prefer watch_brand_task(task_id) instead of polling this tool. You can also read the resource URI soldy://brand/task/{task_id}.",
+    "Check brand extraction progress and result. Use when extract_brand was called with wait=false.",
     { task_id: z.string() },
     async ({ task_id }) => {
       const wsId = await client.getDefaultWorkspaceId();
