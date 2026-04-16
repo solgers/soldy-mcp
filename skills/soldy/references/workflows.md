@@ -9,7 +9,7 @@ User turn (send_message)
   → Intent recognition (what kind of content?)
   → Domain routing (which production track?)
   → Creative direction (one locked strategic concept)
-  → Visual foundation (reference images, color bible)
+  → Visual foundation (reference images, look reference)
   → Script & storyboard (per-shot cinematography)
   → Media generation (video / image / audio)
   → Quality gate (6-dimension scoring)
@@ -26,7 +26,7 @@ These are the trajectories Soldy can take. Which one runs depends on what the us
 
 Best for: e-commerce launches, product hero videos, demonstrations. Product-centric, no characters by default, typically 15–30s.
 
-Internal phases: 4-role creative diagnosis → product four-view + color bible → shot table → storyboard → multi-route I2V/T2V via Kling v2.6 Pro → beat-driven music → merge.
+Internal phases: 4-role creative diagnosis → product four-view + look reference → shot table → storyboard → multi-route I2V/T2V via Kling v2.6 Pro → beat-driven music → merge.
 
 ### Narrative / story video
 

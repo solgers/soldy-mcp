@@ -86,7 +86,7 @@ The `pause` case is the most commonly mishandled. It is **not** a "press any key
 
 ## Iteration vs. restart
 
-Default to iteration. The project carries the brand, the color bible, the character designs, the storyboards, and all the prior shots. Throwing that away is expensive in both credits and quality.
+Default to iteration. The project carries the brand, the look reference, the character designs, the storyboards, and all the prior shots. Throwing that away is expensive in both credits and quality.
 
 **Iterate (same project) when:**
 - Adjusting individual shots

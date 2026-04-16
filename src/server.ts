@@ -136,7 +136,7 @@ how Soldy is designed to be used.
   with the cursor to check for new results.
 - Iterate in place. If the user wants the music changed or shot 3 redone, send
   another message to the same project via \`chat\`. Never create a new project to
-  "fix" something — you lose the brand, the color bible, the storyboard, and the
+  "fix" something — you lose the brand, the look reference, the storyboard, and the
   characters.
 
 ## Pick the depth that fits the user

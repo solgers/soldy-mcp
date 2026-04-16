@@ -18,7 +18,7 @@ A few consequences of that model:
 - **`chat` is a turn in a conversation, not "submit job".** Multiple `chat` calls per project is the *normal* case. The project accumulates context — brand, references, locked direction, prior shots — across every turn. `chat` sends your message and blocks until Soldy responds (completes, pauses, errors, or times out).
 - **Soldy will pause and ask for things.** Sometimes credits. Sometimes a creative choice between A/B/C directions. Sometimes approval before moving from script to video. When the `chat` response status is `paused`, it is waiting for the **user**, not for you. Surface the question; don't invent an answer.
 - **It takes minutes, not seconds.** A real production pipeline runs behind the scenes. The `chat` tool handles waiting automatically (default 5-minute timeout). Tell the user it's running if the wait is long.
-- **Iterate in place.** If the user wants the music changed or shot 3 redone, send another message to the same project via `chat`. Never create a new project to "fix" something — you'd lose the brand, the color bible, the storyboard, and the character designs.
+- **Iterate in place.** If the user wants the music changed or shot 3 redone, send another message to the same project via `chat`. Never create a new project to "fix" something — you'd lose the brand, the look reference, the storyboard, and the character designs.
 
 ## What Soldy can do
 
@@ -60,7 +60,7 @@ Rough heuristic Soldy uses internally: 8.0+ ships, 6.5-7.9 polishes, below that 
 These are judgment cards, not a workflow. Read them as "if you find yourself in this situation, here's how to think about it."
 
 - **The `chat` response status is `paused`.** Soldy is waiting on the user, not on you. Read why (credits running out? a creative choice between proposed directions? an approval gate?), bring it to the user in plain language, and only call `continue_project` once they've actually answered.
-- **The user gives feedback on a shot or the music.** Iterate via `chat` on the same project. The project remembers everything — brand, color bible, characters, prior shots. A new project would lose all of that and force Soldy to rebuild from scratch.
+- **The user gives feedback on a shot or the music.** Iterate via `chat` on the same project. The project remembers everything — brand, look reference, characters, prior shots. A new project would lose all of that and force Soldy to rebuild from scratch.
 - **The `chat` response timed out.** Generation is still running. Use `get_updates(project_id, cursor)` with the cursor from the `chat` response to check for new results. Tell the user it's still working.
 - **The user mentions a product URL but you don't have a brand yet.** Offer to `extract_brand` first. Soldy does **not** auto-extract URLs that appear inside message text — that step has to be explicit, and you'll get much better output if you do it.
 - **The user says "use this image" or "animate this".** Reach for Seedance mode (`input_mode: "seedance"` + `seedance_reference_url`) instead of triggering the full creative pipeline. It's faster and matches their intent.
