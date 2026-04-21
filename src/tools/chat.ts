@@ -185,6 +185,59 @@ If the response status is "timeout", generation is still running. Use get_update
 // Formatting
 // ---------------------------------------------------------------------------
 
+interface UserChoiceOption {
+  id?: string;
+  label?: string;
+  title?: string;
+  description?: string;
+  preview_url?: string;
+}
+
+interface UserChoiceOutput {
+  key?: string;
+  title?: string;
+  prompt?: string;
+  options?: UserChoiceOption[];
+  recommended_id?: string;
+}
+
+function isUserChoiceTool(name: string): boolean {
+  return name === "user_choice_prompt" || name.endsWith("_user_choice");
+}
+
+function asUserChoiceOutput(
+  output: Record<string, unknown> | undefined,
+): UserChoiceOutput | null {
+  if (!output) return null;
+  const opts = output.options;
+  if (!Array.isArray(opts)) return null;
+  return output as UserChoiceOutput;
+}
+
+function renderUserChoice(uc: UserChoiceOutput): string {
+  const header = uc.title ?? uc.prompt ?? "Soldy is asking you to pick";
+  const lines = [`  ❓ ${header}${uc.key ? `  (key: ${uc.key})` : ""}`];
+  for (const [i, opt] of (uc.options ?? []).entries()) {
+    const marker =
+      opt.id && opt.id === uc.recommended_id ? " ⭐ recommended" : "";
+    const label = opt.label ?? opt.title ?? opt.id ?? `option ${i + 1}`;
+    lines.push(`     ${i + 1}. ${label}${marker}`);
+    if (opt.description) lines.push(`        ${opt.description}`);
+    if (opt.preview_url) lines.push(`        preview: ${opt.preview_url}`);
+  }
+  return lines.join("\n");
+}
+
+function extractRejectedFix(
+  output: Record<string, unknown> | undefined,
+): { error: string; fix?: string } | null {
+  if (!output) return null;
+  const err = output.error;
+  if (typeof err !== "string" || err.trim() === "") return null;
+  const fix = typeof output.fix === "string" ? output.fix : undefined;
+  return { error: err, fix };
+}
+
 function formatChatResult(result: ChatResult): string {
   const lines: string[] = [];
 
@@ -201,6 +254,9 @@ function formatChatResult(result: ChatResult): string {
   if (result.run_id) lines.push(`Run: ${result.run_id}`);
   lines.push("");
 
+  // Track flags surfaced from tool outputs
+  let sawUserChoice = false;
+
   // Agent messages
   if (result.messages.length > 0) {
     for (const msg of result.messages) {
@@ -209,6 +265,22 @@ function formatChatResult(result: ChatResult): string {
           `[tool: ${msg.tool.name}${msg.tool.state ? ` (${msg.tool.state})` : ""}]`,
         );
         if (msg.content) lines.push(`  ${msg.content}`);
+
+        // user_choice_prompt → render the choice card
+        if (isUserChoiceTool(msg.tool.name)) {
+          const uc = asUserChoiceOutput(msg.tool.output);
+          if (uc) {
+            sawUserChoice = true;
+            lines.push(renderUserChoice(uc));
+          }
+        }
+
+        // Image tool with structured rejection → show fix hint
+        const rej = extractRejectedFix(msg.tool.output);
+        if (rej) {
+          lines.push(`  ✗ rejected: ${rej.error}`);
+          if (rej.fix) lines.push(`    suggested fix: ${rej.fix}`);
+        }
       } else if (msg.content) {
         const prefix = msg.role === "user" ? "[you]" : "[agent]";
         lines.push(`${prefix} ${msg.content}`);
@@ -235,11 +307,19 @@ function formatChatResult(result: ChatResult): string {
   }
 
   // Status-specific messages
-  if (result.status === "paused" && result.pause_reason) {
-    lines.push(
-      `Pause reason: ${result.pause_reason}`,
-      "Ask the user what to do, then call continue_project to resume.",
-    );
+  if (result.status === "paused") {
+    if (sawUserChoice) {
+      lines.push(
+        "Paused awaiting user choice. Surface the options above to the user, then call continue_project (the agent picks up the choice from the conversation).",
+      );
+    } else if (result.pause_reason) {
+      lines.push(
+        `Pause reason: ${result.pause_reason}`,
+        "Ask the user what to do, then call continue_project to resume.",
+      );
+    } else {
+      lines.push("Paused. Ask the user, then call continue_project to resume.");
+    }
   }
   if (result.status === "error" && result.error_message) {
     lines.push(`Error: ${result.error_message}`);

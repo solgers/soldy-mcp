@@ -142,9 +142,9 @@ export class SoldyAPIClient {
 
   async delete<T>(
     path: string,
-    params?: Record<string, string>,
+    opts?: { params?: Record<string, string>; body?: unknown },
   ): Promise<ApiResponse<T>> {
-    return this.request<T>("DELETE", path, { params });
+    return this.request<T>("DELETE", path, opts);
   }
 
   /** List all projects in the default workspace (cached for 5s). */

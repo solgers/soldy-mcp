@@ -249,4 +249,45 @@ Once finished, use the returned brand_id in chat or send_message options.`,
       }
     },
   );
+
+  server.tool(
+    "fetch_brand_social",
+    `Fetch recent social-media posts for a brand (Apify-backed). Returns immediately with a brand task; poll \`get_brand_task_result\` for progress and the materialized posts.
+
+\`accounts\` is one or more {platform, url, handle?} entries. \`platform\` is the social network identifier (e.g. "instagram", "tiktok", "x"). NOTE: this endpoint requires the \`brand_social_media_research_access\` Statsig gate or a server-side Apify API key.`,
+    {
+      brand_id: z.string(),
+      accounts: z
+        .array(
+          z.object({
+            platform: z.string(),
+            url: z.string(),
+            handle: z.string().optional(),
+          }),
+        )
+        .min(1),
+    },
+    async ({ brand_id, accounts }) => {
+      const wsId = await client.getDefaultWorkspaceId();
+      const resp = await client.post<BrandTask>("/public/brand/social/fetch", {
+        workspace_id: wsId,
+        brand_id,
+        accounts,
+      });
+      if (resp.code !== 0 || !resp.data) {
+        return {
+          content: [{ type: "text" as const, text: formatApiError(resp) }],
+          isError: true,
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Social fetch started (task: \`${resp.data.id}\`, ${accounts.length} account(s)). Poll with get_brand_task_result.`,
+          },
+        ],
+      };
+    },
+  );
 }

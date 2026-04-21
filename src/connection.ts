@@ -101,7 +101,11 @@ export interface ChatResultMessage {
   role: string;
   content: string;
   event: string;
-  tool?: { name: string; state?: string };
+  tool?: {
+    name: string;
+    state?: string;
+    output?: Record<string, unknown>;
+  };
   materials?: MaterialRef[];
 }
 
@@ -600,6 +604,13 @@ export class ConnectionManager {
       };
       if (m?.tool?.name) {
         resultMsg.tool = { name: m.tool.name, state: m.tool.state };
+        if (
+          m.tool.output &&
+          typeof m.tool.output === "object" &&
+          !Array.isArray(m.tool.output)
+        ) {
+          resultMsg.tool.output = m.tool.output as Record<string, unknown>;
+        }
       }
       if (m?.materials?.length) {
         resultMsg.materials = m.materials;

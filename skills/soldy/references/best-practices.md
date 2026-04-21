@@ -139,3 +139,27 @@ Then, once they pick, send a `chat` message saying which one to lock and resume.
 - **Forgetting `brand_id`.** When a brand exists, always pass it — otherwise the output won't match the brand.
 - **Using `send_message` when `chat` would work.** `chat` is simpler — it sends and waits in one call.
 - **Writing shot-by-shot prompts.** You're directing instead of delegating. Describe outcomes; let Soldy handle cinematography.
+- **Auto-picking when Soldy asks for a user choice.** When `chat` returns with a `❓` choice card embedded in the response (paused awaiting user choice), surface the options *as written* to the user and let them pick. Don't quietly substitute your own judgment for theirs — the choice is the product.
+
+## When to reach past `chat` — standalone workflows & primitives
+
+`chat` is the right tool for *making creative decisions together*. When the user is asking for one specific deliverable from a deterministic recipe, the standalone tools are a faster, cheaper path:
+
+| What the user wants | Reach for |
+|---|---|
+| "Restyle this video clip" | `recast_generate` |
+| "Make a movie-flavored ad from this product photo" | `cinead_generate` |
+| "Generate the Shopify/Amazon/Meta image set for this product" | `imagekit_generate` |
+| "Animate this single image" | `chat` with `input_mode: "seedance"` (the conversational shorthand) |
+| "Just submit a Seedance task with this prompt" | `seedance_generate` (raw, bypasses agent) |
+| "Give me a single look-reference image with this palette" | `generate_look_reference` |
+| "Build me a cast brief from this character description" | `generate_cast_design` |
+
+Rule of thumb: if the user's ask reduces to "run this exact pipeline", the standalone tool wins on speed and clarity. If it's "let's figure out the right ad together", stay in `chat`.
+
+## Reading the chat response — new tool outputs
+
+The `chat` response renders two structured tool outputs that the agent now emits regularly:
+
+- **`❓` choice card** — the agent's `user_choice_prompt` tool fired. The card lists labeled options (and may mark one ⭐ recommended). Status is typically `paused`. Surface the options to the user *as written* and call `continue_project` once they answer in the next user turn.
+- **`✗ rejected: …  suggested fix: …`** — the image-generation tool emitted a structured rejection (e.g. wrong product shape, catalog aesthetic). The "suggested fix" is the agent's own remediation hint. Pass it on so the user can see *why* a render was rejected and *what to change*. You usually don't need to re-prompt manually — Soldy iterates on its own based on the fix; only intervene if the user has additional context the agent can't see.

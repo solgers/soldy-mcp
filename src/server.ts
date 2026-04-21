@@ -10,14 +10,16 @@ import { registerChatTools } from "./tools/chat.js";
 import { registerMaterialTools } from "./tools/material.js";
 import { registerMessageTools } from "./tools/message.js";
 import { registerProjectTools } from "./tools/project.js";
+import { registerStandaloneTools } from "./tools/standalone.js";
 import { registerUpdateTools } from "./tools/updates.js";
+import { registerWorkflowTools } from "./tools/workflows.js";
 
 export function createServer(
   apiUrl: string,
   apiKey: string,
 ): { server: McpServer; connection: ConnectionManager } {
   const server = new McpServer(
-    { name: "Soldy AI", version: "0.2.0" },
+    { name: "Soldy AI", version: "0.3.0" },
     {
       capabilities: { tools: {}, prompts: {}, resources: {} },
       instructions: SERVER_INSTRUCTIONS,
@@ -34,6 +36,8 @@ export function createServer(
   registerMaterialTools(server, apiUrl);
   registerChatTools(server, client, connection);
   registerUpdateTools(server, connection);
+  registerWorkflowTools(server, client);
+  registerStandaloneTools(server, client);
 
   // Resources (read-only)
   registerBrandResources(server, client);

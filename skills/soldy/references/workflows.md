@@ -103,3 +103,61 @@ Soldy can recompose a creative across aspect ratios *intelligently*, not by crop
 - **Video** — Kling v2.6 Pro (default), Seedance 2.0 (opt-in, multi-segment / edit / replace), LTX-2 (scene extension)
 - **Audio** — AI music composition, Chatterbox TTS/STS, Whisper STT
 - **Post** — Topaz upscaling, BRIA background removal, DreamActor v2 character animation, video merge / transitions
+
+---
+
+## Standalone workflows — when *not* to use `chat`
+
+Some jobs aren't a conversation, they're a deterministic recipe. Soldy exposes three standalone workflows for those cases. They live next to `chat`, not under it — each is a single MCP tool that does the whole job and returns the result. Use them when the user is asking for *one specific deliverable* and creative back-and-forth isn't the point.
+
+| Workflow | Use it when… | Tool |
+|---|---|---|
+| **Recast** | The user already has a video and wants it restyled (Style Transfer or Object Replacement). | `recast_generate` |
+| **CineAd** | The user wants a movie-scene-flavored ad for a single product image, with a structured Hook/Body/CTA script. | `cinead_generate` |
+| **ImageKit** | The user wants a layout-pack of marketing images (Shopify / Amazon / Meta) from one product photo. | `imagekit_generate` |
+
+These tools share a shape: upload product/source media via `upload_material` first, pass the URLs to the workflow tool, and wait. They're synchronous from the agent's POV and they don't enter the conversational pipeline, so don't try to mix them with `chat` on the same project.
+
+### Mini-workflow: Recast a TikTok clip
+
+```
+1. upload the source clip → get url/name/size/mime/thumbnail
+2. recast_generate(
+     video_url, video_name, video_size, video_mime, video_duration,
+     video_thumbnail_url,
+     recast_dimension: "Style Transfer",
+     recast_description: "warm anime cel-shaded look, soft edges, 80s palette"
+   )
+3. result returns the new video URL + the prompt that was used
+```
+
+### Mini-workflow: CineAd
+
+```
+1. upload the product photo → get url
+2. cinead_generate(image_url, product_name: "Nordic Sleep Mask",
+                   key_selling_point: "complete blackout in 0.5s")
+3. result returns the matched movie scene, the ad script (Hook/Body/CTA),
+   and the rendered video
+```
+
+### Mini-workflow: ImageKit
+
+```
+1. upload the product photo → get url
+2. imagekit_generate(image_url, product_name: "Aurora Headphones",
+                     kit_type: "shopify",
+                     key_selling_point: "noise-cancel without weight")
+3. result returns N image variants for the chosen layout pack (synchronous)
+```
+
+For all three, also surface `*_list_history` and `*_get_history_detail` to the user when they want to revisit prior generations.
+
+## Standalone agent primitives — Look Reference & Cast Design
+
+`generate_look_reference` and `generate_cast_design` are individual agent calls exposed as MCP tools. They don't need a project — the agent runs the primitive once and writes the result to `tool_tasks`.
+
+- **Look Reference**: hand-picked tool when the user wants a *single visual reference* (clean scene + annotated palette board) for a film/ad. The user supplies a written scene description plus a 4-color palette (`primary`, `secondary`, `accent`, `shadow`). Defaults block until done; pass `wait: false` for a `task_id` you can poll with `get_tool_task`.
+- **Cast Design**: hand-picked tool when the user wants a *cast brief* (archetype + visual prompt + per-member hero image). The user describes the cast in free form; the LLM infers methodology details (archetype, hyperbole trait, entity type). Same `wait` semantics.
+
+Both are gated by the `tools_access` Statsig dynamic config; if the gate is off for the account, the call returns a clear "not enabled" error.

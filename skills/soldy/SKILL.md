@@ -102,6 +102,30 @@ Full parameter docs: [references/tools.md](references/tools.md). One-line summar
 **Control**
 - `pause_project` / `continue_project` / `stop_project` — pause for review, resume after a user decision, or stop entirely. Note: Soldy itself sometimes puts a project into `pause`; that's a *user* decision point, not a control you should auto-resolve.
 
+**Standalone workflows (alternatives to `chat` when the ask is deterministic)**
+- `recast_generate` — restyle an existing source video (Style Transfer / Object Replacement).
+- `cinead_generate` — match a product to a famous movie scene + render an ad with Hook/Body/CTA script.
+- `imagekit_generate` — produce a marketing image kit (Shopify / Amazon / Meta layouts) for one product photo.
+- `seedance_generate` — submit a Seedance task directly (raw, bypasses the conversational agent). Use for "just run this prompt" intents; for "animate this image" prefer `chat` with `input_mode: "seedance"`.
+- `generate_look_reference` / `generate_cast_design` — single-shot agent primitives that don't need a project.
+
+When to reach past `chat`: see [references/best-practices.md](references/best-practices.md#when-to-reach-past-chat-—-standalone-workflows-—-primitives) — rule of thumb is "if the ask reduces to one specific deterministic deliverable, the standalone tool is faster and clearer."
+
+**Project introspection (extended)**
+- `get_project_chronicle` — read the agent's running narrative for a project (markdown).
+- `generate_project_name` — ask the agent to suggest a name (after first user message exists).
+- `add_showcase` / `remove_showcase` / `list_showcase` — manage org's showcase gallery (`add` / `remove` are debug-gated).
+- `seedance_generate` / `get_seedance_task` / `list_seedance_history` — direct Seedance task lifecycle.
+- `fetch_brand_social` — pull recent social-media posts for a brand (Apify-backed, gate-controlled).
+- `get_tool_task` / `list_tool_tasks` — poll any standalone agent primitive (look-reference, cast-design, ...).
+
+## Reading the `chat` response
+
+`chat` returns a structured response with `status`, `messages`, `materials`, and a `cursor`. Two patterns to watch for in the rendered text:
+
+- **`❓ Soldy is asking you to pick: …`** — the agent emitted a `user_choice_prompt` tool. Status is usually `paused`. Surface the options exactly as listed (one may be ⭐ recommended); the user picks; you call `continue_project` after their next message.
+- **`✗ rejected: …  suggested fix: …`** — an image-generation tool produced a machine-readable rejection (e.g. wrong product shape, catalog aesthetic) and a remediation hint. Pass both to the user so they see *why* and *what to change*. Soldy will typically iterate automatically; only intervene if the user has context Soldy can't infer.
+
 ## Aspect ratios
 
 `ratio` is required in `chat` and `send_message`. Pick by target platform:

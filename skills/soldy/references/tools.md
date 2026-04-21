@@ -243,3 +243,171 @@ Returns array of materials with: url, type (video/image/audio/document), thumbna
 Returns HTTP upload endpoint info. Usually not needed — `chat` and `send_message` handle local file uploads automatically.
 
 No parameters.
+
+---
+
+## Project — extended endpoints
+
+### get_project_chronicle
+
+Read the agent's running narrative for a project (the markdown chronicle the agent maintains in GCS as the conversation evolves). Returns null if the agent hasn't written one yet.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `project_id` | string | yes | Project ID |
+
+### copy_project
+
+Copy a project plus its messages and brand/product assignments. Returns the new project. **Debug-gated server-side** — only works for accounts with the `enable_debug` Statsig gate.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `project_id` | string | yes | Source project ID |
+
+### generate_project_name
+
+Use the agent to suggest a fresh name for a project (typically derived from the first user message).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `project_id` | string | yes | Project ID |
+
+### add_showcase / remove_showcase / list_showcase
+
+Manage the org's showcase gallery. `add` and `remove` are debug-gated.
+
+| Tool | Args |
+|---|---|
+| `add_showcase` | `project_id` |
+| `remove_showcase` | `project_id` |
+| `list_showcase` | `page?`, `page_size?` |
+
+### seedance_generate
+
+Submit a Seedance video task **directly** (bypasses the conversational agent). Returns a `task_id` immediately; poll with `get_seedance_task`. Use when you want raw control: a prompt + media + duration/ratio with no creative-direction back-and-forth. For creative iteration, prefer `chat` with `input_mode="seedance"`.
+
+| Parameter | Type | Required | Notes |
+|---|---|---|---|
+| `prompt` | string | yes | |
+| `image_url` / `video_url` / `audio_url` | string[] | no | Reference media URLs |
+| `duration` | number | no | -1 = auto, otherwise 4–15 (default 10) |
+| `ratio` | string | no | `16:9` `4:3` `1:1` `3:4` `9:16` `21:9` `adaptive` |
+| `input_ratio` | string | no | Source media ratio hint |
+| `model` | string | no | `doubao-seedance-2-0-260128` (default) or `…-fast-260128` |
+| `resolution` | enum | no | `480p` `720p` `1080p` |
+| `module` | string | no | `Direct` (default), `UGC`, `Tutorial`, `Unboxing`, `Hyper_Motion`, `Product_Review`, `TV_Spot`, `Wild_Card`, `UGC_Virtual_Try_On`, `Pro_Virtual_Try_On` |
+
+### get_seedance_task
+
+Poll a Seedance task by ID.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `task_id` | string | yes | From `seedance_generate` |
+
+### list_seedance_history
+
+Paginated list of Seedance tasks, optional status filter (`pending`, `running`, `succeeded`, `failed`).
+
+---
+
+## Brand — extended endpoints
+
+### fetch_brand_social
+
+Fetch recent social-media posts for a brand (Apify-backed). Returns immediately with a brand task; poll `get_brand_task_result` for the materialized posts.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `brand_id` | string | yes | |
+| `accounts` | object[] | yes | One or more `{ platform, url, handle? }` |
+
+`platform` is a social-network identifier (e.g. `"instagram"`, `"tiktok"`, `"x"`). Server-side gate: requires `brand_social_media_research_access` Statsig gate or a configured Apify API key.
+
+---
+
+## Standalone workflows (Recast / CineAd / ImageKit)
+
+These are **alternatives to `chat`** for narrowly-scoped, single-output generation. They never enter the conversational agent — each is a deterministic pipeline. Each `_generate` tool is a one-shot wrapper that drives session→prompt→video (or analyze→generate) and polls until done.
+
+For all three: source media must already be uploaded via `upload_material` (or any URL the backend can read).
+
+### Recast
+
+Re-style an existing source video (Style Transfer or Object Replacement).
+
+| Tool | Purpose |
+|---|---|
+| `recast_generate` | One-shot. Inputs: `video_url`/`video_name`/`video_size`/`video_mime`/`video_duration`/`video_thumbnail_url`, `recast_dimension` (`Style Transfer` \| `Object Replacement`), `recast_description`, `product_url?`. Blocks up to `timeout_seconds` (default 600). |
+| `recast_get_video_status` | Poll a single video by `video_id`. |
+| `recast_list_history` | Paginated history. |
+| `recast_get_history_detail` | Full input + result for one session. |
+
+### CineAd
+
+Match a product image to a famous movie scene and render an ad with a structured Hook/Body/CTA script.
+
+| Tool | Purpose |
+|---|---|
+| `cinead_generate` | One-shot. Inputs: `image_url`, `product_name`, `key_selling_point?`. Returns the matched scene + ad script + final video. |
+| `cinead_get_video_status` | Poll a single video by `video_id`. |
+| `cinead_list_history` | Paginated history. |
+| `cinead_get_history_detail` | Full detail (matched scene, ad script, video). |
+
+### ImageKit
+
+Generate a marketing **image kit** (set of layouts) for a product. Synchronous — no polling.
+
+| Tool | Purpose |
+|---|---|
+| `imagekit_generate` | One-shot. Inputs: `image_url`, `product_name`, `kit_type` (`shopify` \| `amazon` \| `meta`), `key_selling_point?`, `image_types?`. Returns the full set. |
+| `imagekit_list_history` | Paginated history. |
+| `imagekit_get_history_detail` | Full detail. |
+
+---
+
+## Standalone agent primitives (tool tasks)
+
+Async one-off agent calls. Each one creates a `tool_task` row; with `wait=true` (default) the MCP polls until done. With `wait=false` you get back a `task_id` to poll yourself.
+
+### generate_look_reference
+
+Generate a cinematic look reference (clean scene image + annotated palette board).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `scene_description` | string | yes | |
+| `hex_palette` | object | yes | `{ primary, secondary, accent, shadow }` — each `#RRGGBB` |
+| `lighting` / `atmosphere` / `textures` | string | no | Tonal hints |
+| `ratio` | string | no | Default `"16:9"` |
+| `include_product` | boolean | no | If true, supply `product_image_url` |
+| `product_image_url` | string | no | |
+| `wait` | boolean | no | Default `true` |
+| `timeout_seconds` | number | no | Default 600 |
+
+### generate_cast_design
+
+Generate a character cast brief (archetype + visual prompts + per-member hero image). LLM infers methodology details from the description.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `description` | string | yes | |
+| `context` | string | no | |
+| `style_mode` | enum | no | `realistic` (default), `stylized`, `cartoon` |
+| `reference_images` | string[] | no | |
+| `ratio` | string | no | Default `9:16` |
+| `wait` | boolean | no | Default `true` |
+| `timeout_seconds` | number | no | Default 900 |
+
+### get_tool_task
+
+Poll one tool task by `task_id` (use after a `_generate` with `wait=false`).
+
+### list_tool_tasks
+
+List recent tool tasks for the workspace, newest first.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `tool_name` | string | no | Filter (e.g. `generate_look_reference`) |
+| `limit` | number | no | Max rows |

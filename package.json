@@ -1,6 +1,6 @@
 {
   "name": "@soldy_ai/mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Soldy AI MCP Server — video ad generation via Claude Desktop, Cursor, Claude Code",
   "type": "module",
   "bin": {
@@ -10,8 +10,9 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "lint": "biome check src/",
-    "lint:fix": "biome check --write src/"
+    "lint": "biome check src/ tests/",
+    "lint:fix": "biome check --write src/ tests/",
+    "test:smoke": "tsc && tsx tests/smoke.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
