@@ -21,7 +21,7 @@ export function registerChatTools(
 
 This is the primary way to interact with Soldy. It sends your message, waits for the agent to finish processing, and returns the full response including all messages, tool calls, and generated materials.
 
-The call blocks until the agent run completes, pauses, errors, or times out (default 5 minutes). For long-running generations, use a higher timeout_seconds.
+The call blocks until the agent run completes, pauses, is cancelled, errors, or times out (default 5 minutes). For long-running generations, use a higher timeout_seconds.
 
 Required: ratio — the video aspect ratio. Choose based on target platform:
 - 9:16 → TikTok, Reels, Shorts (vertical)
@@ -29,7 +29,16 @@ Required: ratio — the video aspect ratio. Choose based on target platform:
 - 1:1 → Instagram, square
 - 4:3, 3:4, 3:2, 2:3, 21:9 → other formats
 
-If the response status is "paused", the agent is waiting for user input (e.g., credits, approval). Show the pause reason to the user, then call continue_project when ready.
+Optional advanced routing:
+- workflow — pin the agent to a specific workflow (brand_dna, product, character, visual_hooks, product_highlights, story_creative, campaign_planning).
+- entry_template_id — Image/Video home card id (e.g. "storyboard-grid") used when launching a Showcase from the homepage.
+- creative_brief — structured brief from the brief wizard. Map of strings; common keys: duration, delivery, ratio, narrative_style, visual_style, music_mood, workflow, platform, pacing.
+- should_remind — set false to skip large-consumption confirmations on this run (default true).
+- large_consume_agreed — set true to pre-acknowledge large-consumption cost so the agent does not pause for it.
+
+If the response status is "paused", the agent is waiting for user input (e.g., credits, approval). Show the pause reason / cost / tool_name to the user, then call continue_project when ready.
+
+If the response status is "cancelled", the run was stopped by user/system; no further action is needed.
 
 If the response status is "timeout", generation is still running. Use get_updates with the returned cursor to check for new results.`,
     {
@@ -58,6 +67,40 @@ If the response status is "timeout", generation is still running. Use get_update
         .string()
         .optional()
         .describe("Reference image for Seedance 2.0 mode"),
+      workflow: z
+        .enum([
+          "brand_dna",
+          "product",
+          "character",
+          "visual_hooks",
+          "product_highlights",
+          "story_creative",
+          "campaign_planning",
+        ])
+        .optional()
+        .describe("Pin the agent to a specific workflow track"),
+      entry_template_id: z
+        .string()
+        .optional()
+        .describe(
+          "Showcase entry-template id (e.g. 'storyboard-grid'); routes the agent to showcase creation",
+        ),
+      creative_brief: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe(
+          "Structured brief from the brief wizard (duration, delivery, narrative_style, visual_style, music_mood, platform, pacing, etc.)",
+        ),
+      should_remind: z
+        .boolean()
+        .optional()
+        .describe("Set false to skip large-consumption reminders for this run"),
+      large_consume_agreed: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true to pre-acknowledge the large-consumption cost so the agent does not pause",
+        ),
       timeout_seconds: z
         .number()
         .optional()
@@ -71,6 +114,11 @@ If the response status is "timeout", generation is still running. Use get_update
       brand_id,
       input_mode,
       seedance_reference_url,
+      workflow,
+      entry_template_id,
+      creative_brief,
+      should_remind,
+      large_consume_agreed,
       timeout_seconds,
     }) => {
       // Validate seedance mode
@@ -125,17 +173,23 @@ If the response status is "timeout", generation is still running. Use get_update
       }
 
       // Send message via HTTP
+      const options: Record<string, unknown> = { ratio };
+      if (brand_id) options.brand_id = brand_id;
+      if (input_mode) options.input_mode = input_mode;
+      if (resolvedSeedanceRef)
+        options.seedance_reference_url = resolvedSeedanceRef;
+      if (workflow) options.workflow = workflow;
+      if (entry_template_id) options.entry_template_id = entry_template_id;
+      if (creative_brief && Object.keys(creative_brief).length > 0)
+        options.creative_brief = creative_brief;
+      if (should_remind !== undefined) options.should_remind = should_remind;
+      if (large_consume_agreed !== undefined)
+        options.large_consume_agreed = large_consume_agreed;
+
       const body: Record<string, unknown> = {
         project_id,
         content: message,
-        options: {
-          ratio,
-          ...(brand_id ? { brand_id } : {}),
-          ...(input_mode ? { input_mode } : {}),
-          ...(resolvedSeedanceRef
-            ? { seedance_reference_url: resolvedSeedanceRef }
-            : {}),
-        },
+        options,
       };
       if (resolvedUrls?.length) body.material_urls = resolvedUrls;
 
@@ -238,28 +292,55 @@ function extractRejectedFix(
   return { error: err, fix };
 }
 
+const REASONING_EVENTS = new Set([
+  "ReasoningStarted",
+  "ReasoningStep",
+  "ReasoningCompleted",
+  "TeamReasoningStarted",
+  "TeamReasoningStep",
+  "TeamReasoningCompleted",
+]);
+
+function formatPauseToolName(tn: string | string[] | undefined): string | null {
+  if (!tn) return null;
+  if (Array.isArray(tn)) {
+    return tn.length > 0 ? tn.join(", ") : null;
+  }
+  return tn.trim() === "" ? null : tn;
+}
+
 function formatChatResult(result: ChatResult): string {
   const lines: string[] = [];
 
   // Status header
-  const statusEmoji: Record<string, string> = {
+  const statusLabel: Record<string, string> = {
     completed: "completed",
     paused: "paused",
+    cancelled: "cancelled",
     error: "error",
     timeout: "timeout",
   };
   lines.push(
-    `Status: ${statusEmoji[result.status] ?? result.status} (${result.elapsed_seconds}s)`,
+    `Status: ${statusLabel[result.status] ?? result.status} (${result.elapsed_seconds}s)`,
   );
   if (result.run_id) lines.push(`Run: ${result.run_id}`);
   lines.push("");
 
   // Track flags surfaced from tool outputs
   let sawUserChoice = false;
+  const reasoningSteps: string[] = [];
 
   // Agent messages
   if (result.messages.length > 0) {
     for (const msg of result.messages) {
+      if (REASONING_EVENTS.has(msg.event)) {
+        // Fold reasoning events into a single block at the end of this section.
+        if (msg.content && msg.content.trim() !== "") {
+          reasoningSteps.push(msg.content.trim());
+        }
+        continue;
+      }
+
       if (msg.tool) {
         lines.push(
           `[tool: ${msg.tool.name}${msg.tool.state ? ` (${msg.tool.state})` : ""}]`,
@@ -291,6 +372,14 @@ function formatChatResult(result: ChatResult): string {
         }
       }
     }
+
+    if (reasoningSteps.length > 0) {
+      lines.push("[reasoning]");
+      for (const step of reasoningSteps) {
+        lines.push(`  • ${step}`);
+      }
+    }
+
     lines.push("");
   }
 
@@ -313,13 +402,28 @@ function formatChatResult(result: ChatResult): string {
         "Paused awaiting user choice. Surface the options above to the user, then call continue_project (the agent picks up the choice from the conversation).",
       );
     } else if (result.pause_reason) {
+      lines.push(`Pause reason: ${result.pause_reason}`);
+    } else {
+      lines.push("Paused.");
+    }
+    if (result.pause_cost !== undefined) {
+      lines.push(`Estimated cost: ${result.pause_cost} credits`);
+    }
+    if (result.pause_large_consumption !== undefined) {
       lines.push(
-        `Pause reason: ${result.pause_reason}`,
+        `Large-consumption threshold: ${result.pause_large_consumption}`,
+      );
+    }
+    const tn = formatPauseToolName(result.pause_tool_name);
+    if (tn) lines.push(`Pending tool: ${tn}`);
+    if (!sawUserChoice) {
+      lines.push(
         "Ask the user what to do, then call continue_project to resume.",
       );
-    } else {
-      lines.push("Paused. Ask the user, then call continue_project to resume.");
     }
+  }
+  if (result.status === "cancelled") {
+    lines.push("Run was cancelled. No further action needed.");
   }
   if (result.status === "error" && result.error_message) {
     lines.push(`Error: ${result.error_message}`);
@@ -328,6 +432,19 @@ function formatChatResult(result: ChatResult): string {
     lines.push(
       "Generation is still running. Use get_updates with the cursor below to check for new results.",
     );
+  }
+
+  if (result.task_pending) {
+    lines.push(
+      "Note: agent reported task_completed=false — there may be more steps remaining.",
+    );
+  }
+
+  if (result.follow_up_questions?.length) {
+    lines.push("Follow-ups:");
+    for (const q of result.follow_up_questions) {
+      lines.push(`  - ${q}`);
+    }
   }
 
   if (result.cursor !== "0") {

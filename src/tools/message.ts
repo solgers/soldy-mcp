@@ -43,7 +43,7 @@ Use \`send_message\` only when you want async control: send the message, do othe
 
 Required: ratio — the video aspect ratio (9:16, 16:9, 1:1, 4:3, 3:4, 3:2, 2:3, 21:9).
 
-Also supports material_urls, brand_id, input_mode ("agent"/"seedance"), and seedance_reference_url.`,
+Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedance_reference_url, workflow, entry_template_id, creative_brief, should_remind, large_consume_agreed.`,
     {
       project_id: z.string(),
       content: z
@@ -76,6 +76,40 @@ Also supports material_urls, brand_id, input_mode ("agent"/"seedance"), and seed
         .describe(
           "Reference image for Seedance 2.0. Required when input_mode='seedance'. Local file paths are auto-uploaded; GCS/http URLs pass through.",
         ),
+      workflow: z
+        .enum([
+          "brand_dna",
+          "product",
+          "character",
+          "visual_hooks",
+          "product_highlights",
+          "story_creative",
+          "campaign_planning",
+        ])
+        .optional()
+        .describe("Pin the agent to a specific workflow track"),
+      entry_template_id: z
+        .string()
+        .optional()
+        .describe(
+          "Showcase entry-template id (e.g. 'storyboard-grid'); routes the agent to showcase creation",
+        ),
+      creative_brief: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe(
+          "Structured brief from the brief wizard (duration, delivery, narrative_style, visual_style, music_mood, platform, pacing, etc.)",
+        ),
+      should_remind: z
+        .boolean()
+        .optional()
+        .describe("Set false to skip large-consumption reminders for this run"),
+      large_consume_agreed: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true to pre-acknowledge large-consumption cost so the agent does not pause",
+        ),
     },
     async ({
       project_id,
@@ -85,6 +119,11 @@ Also supports material_urls, brand_id, input_mode ("agent"/"seedance"), and seed
       brand_id,
       input_mode,
       seedance_reference_url,
+      workflow,
+      entry_template_id,
+      creative_brief,
+      should_remind,
+      large_consume_agreed,
     }) => {
       if (input_mode === "seedance" && !seedance_reference_url?.trim()) {
         return {
@@ -134,17 +173,23 @@ Also supports material_urls, brand_id, input_mode ("agent"/"seedance"), and seed
         }
       }
 
+      const options: Record<string, unknown> = { ratio };
+      if (brand_id) options.brand_id = brand_id;
+      if (input_mode) options.input_mode = input_mode;
+      if (resolvedSeedanceRef)
+        options.seedance_reference_url = resolvedSeedanceRef;
+      if (workflow) options.workflow = workflow;
+      if (entry_template_id) options.entry_template_id = entry_template_id;
+      if (creative_brief && Object.keys(creative_brief).length > 0)
+        options.creative_brief = creative_brief;
+      if (should_remind !== undefined) options.should_remind = should_remind;
+      if (large_consume_agreed !== undefined)
+        options.large_consume_agreed = large_consume_agreed;
+
       const body: Record<string, unknown> = {
         project_id,
         content,
-        options: {
-          ratio,
-          ...(brand_id ? { brand_id } : {}),
-          ...(input_mode ? { input_mode } : {}),
-          ...(resolvedSeedanceRef
-            ? { seedance_reference_url: resolvedSeedanceRef }
-            : {}),
-        },
+        options,
       };
       if (resolvedUrls?.length) body.material_urls = resolvedUrls;
 
@@ -325,7 +370,8 @@ Also supports material_urls, brand_id, input_mode ("agent"/"seedance"), and seed
         }
         // Show pause reason if present
         if (msg.event === "RunPaused" && msg.metadata) {
-          const reason = (msg.metadata as Record<string, unknown>).reason;
+          const md = msg.metadata as Record<string, unknown>;
+          const reason = md.paused_reason ?? md.reason;
           if (reason) line += `\n  Pause reason: ${reason}`;
         }
 

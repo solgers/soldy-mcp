@@ -79,16 +79,28 @@ waits for the complete agent response in a single call.
 chat(project_id, message, ratio) → { status, messages, materials, cursor }
 \`\`\`
 
-The call blocks until the agent run completes, pauses, errors, or times out.
+The call blocks until the agent run completes, pauses, is cancelled, errors, or times out.
 
 ### After \`chat\`
 
-- **completed**: The response contains all messages and generated materials.
+- **completed**: The response contains all messages and generated materials. If
+  \`follow_up_questions\` are present, surface them to the user as suggested next steps.
 - **paused**: The agent needs user input (credits, approval, A/B choice). Show
-  the pause reason to the user, then call \`continue_project\` when ready.
+  the pause reason / cost / pending tool to the user, then call \`continue_project\` when ready.
+- **cancelled**: The run was stopped by user/system. No further action needed.
 - **error**: Something went wrong. Check error_message.
 - **timeout**: Generation is still running. Call \`get_updates(project_id, cursor)\`
   to check for new results.
+
+### Advanced \`chat\` params (optional)
+
+- \`workflow\`: pin to one of brand_dna / product / character / visual_hooks /
+  product_highlights / story_creative / campaign_planning.
+- \`entry_template_id\`: showcase entry-card id (e.g. "storyboard-grid").
+- \`creative_brief\`: structured brief from the brief wizard
+  (duration, delivery, narrative_style, visual_style, music_mood, platform, pacing…).
+- \`should_remind\` / \`large_consume_agreed\`: opt out of large-consumption
+  reminders or pre-acknowledge cost so the agent does not pause.
 
 ## Other Tools
 

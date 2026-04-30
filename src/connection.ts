@@ -49,6 +49,10 @@ export const MESSAGE_EVENTS = new Set([
   "AgentSystemError",
 ]);
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -87,11 +91,21 @@ export interface BufferedEvent {
 }
 
 export interface ChatResult {
-  status: "completed" | "paused" | "error" | "timeout";
+  status: "completed" | "paused" | "cancelled" | "error" | "timeout";
   messages: ChatResultMessage[];
   materials: MaterialRef[];
   pause_reason?: string;
+  /** Estimated credits cost surfaced when the run paused for confirmation. */
+  pause_cost?: number;
+  /** Tool name(s) that triggered the pause (e.g. image/video generation). */
+  pause_tool_name?: string | string[];
+  /** Whether the pause was triggered by a "large consumption" gate. */
+  pause_large_consumption?: number;
   error_message?: string;
+  /** Follow-up questions surfaced by the agent on completion. */
+  follow_up_questions?: string[];
+  /** True when the agent reported task_completed === false. */
+  task_pending?: boolean;
   run_id?: string;
   cursor: string;
   elapsed_seconds: number;
@@ -559,19 +573,55 @@ export class ConnectionManager {
     // Determine status from terminal event
     let status: ChatResult["status"] = "timeout";
     let pauseReason: string | undefined;
+    let pauseCost: number | undefined;
+    let pauseToolName: string | string[] | undefined;
+    let pauseLargeConsumption: number | undefined;
     let errorMessage: string | undefined;
+    let followUpQuestions: string[] | undefined;
+    let taskPending: boolean | undefined;
 
     for (const entry of runEvents) {
+      const md = entry.msg.message?.metadata;
       if (
         entry.msg.event === "RunCompleted" ||
         entry.msg.event === "TeamRunCompleted"
       ) {
         status = "completed";
+        const rawCompletion = md?.completion;
+        if (isRecord(rawCompletion)) {
+          const fq = rawCompletion.follow_up_questions;
+          if (Array.isArray(fq)) {
+            const filtered = fq.filter(
+              (q): q is string => typeof q === "string" && q.trim() !== "",
+            );
+            if (filtered.length > 0) followUpQuestions = filtered;
+          }
+          if (rawCompletion.task_completed === false) taskPending = true;
+        }
       } else if (entry.msg.event === "RunPaused") {
         status = "paused";
-        pauseReason =
-          (entry.msg.message?.metadata?.reason as string) ??
-          entry.msg.message?.text;
+        const pausedReason = md?.paused_reason;
+        const legacyReason = md?.reason;
+        if (typeof pausedReason === "string") {
+          pauseReason = pausedReason;
+        } else if (typeof legacyReason === "string") {
+          pauseReason = legacyReason;
+        } else {
+          pauseReason = entry.msg.message?.text;
+        }
+        if (typeof md?.cost === "number") pauseCost = md.cost;
+        const tn = md?.tool_name;
+        if (typeof tn === "string") {
+          pauseToolName = tn;
+        } else if (Array.isArray(tn)) {
+          const filtered = tn.filter(
+            (s): s is string => typeof s === "string" && s.trim() !== "",
+          );
+          if (filtered.length > 0) pauseToolName = filtered;
+        }
+        if (typeof md?.large_consumption === "number") {
+          pauseLargeConsumption = md.large_consumption;
+        }
       } else if (
         entry.msg.event === "RunError" ||
         entry.msg.event === "TeamRunError" ||
@@ -583,8 +633,7 @@ export class ConnectionManager {
         entry.msg.event === "RunCancelled" ||
         entry.msg.event === "TeamRunCancelled"
       ) {
-        status = "error";
-        errorMessage = "Run was cancelled";
+        status = "cancelled";
       }
     }
 
@@ -637,7 +686,12 @@ export class ConnectionManager {
       messages,
       materials: [...materialMap.values()],
       pause_reason: pauseReason,
+      pause_cost: pauseCost,
+      pause_tool_name: pauseToolName,
+      pause_large_consumption: pauseLargeConsumption,
       error_message: errorMessage,
+      follow_up_questions: followUpQuestions,
+      task_pending: taskPending,
       run_id: runId,
       cursor: lastCursor,
       elapsed_seconds: Math.round(elapsed * 10) / 10,
