@@ -32,7 +32,7 @@ Required: ratio — the video aspect ratio. Choose based on target platform:
 Optional advanced routing:
 - workflow — pin the agent to a specific workflow (brand_dna, product, character, visual_hooks, product_highlights, story_creative, campaign_planning).
 - entry_template_id — Image/Video home card id (e.g. "storyboard-grid") used when launching a Showcase from the homepage.
-- creative_brief — structured brief from the brief wizard. Map of strings; common keys: duration, delivery, ratio, narrative_style, visual_style, music_mood, workflow, platform, pacing.
+- intent_answers — confirmed picks from clarify_intent cards. Outer key is the answers_key (e.g. "creative_brief", "video_engine_pick"); inner map is question.key → chosen value (e.g. {duration: "15s", ratio: "9:16", platform: "tiktok_reels"}).
 - should_remind — set false to skip large-consumption confirmations on this run (default true).
 - large_consume_agreed — set true to pre-acknowledge large-consumption cost so the agent does not pause for it.
 
@@ -85,11 +85,11 @@ If the response status is "timeout", generation is still running. Use get_update
         .describe(
           "Showcase entry-template id (e.g. 'storyboard-grid'); routes the agent to showcase creation",
         ),
-      creative_brief: z
-        .record(z.string(), z.string())
+      intent_answers: z
+        .record(z.string(), z.record(z.string(), z.string()))
         .optional()
         .describe(
-          "Structured brief from the brief wizard (duration, delivery, narrative_style, visual_style, music_mood, platform, pacing, etc.)",
+          "Confirmed picks from clarify_intent cards. Outer key is the answers_key (e.g. 'creative_brief', 'video_engine_pick'); inner map is question.key → chosen value.",
         ),
       should_remind: z
         .boolean()
@@ -116,7 +116,7 @@ If the response status is "timeout", generation is still running. Use get_update
       seedance_reference_url,
       workflow,
       entry_template_id,
-      creative_brief,
+      intent_answers,
       should_remind,
       large_consume_agreed,
       timeout_seconds,
@@ -180,8 +180,8 @@ If the response status is "timeout", generation is still running. Use get_update
         options.seedance_reference_url = resolvedSeedanceRef;
       if (workflow) options.workflow = workflow;
       if (entry_template_id) options.entry_template_id = entry_template_id;
-      if (creative_brief && Object.keys(creative_brief).length > 0)
-        options.creative_brief = creative_brief;
+      if (intent_answers && Object.keys(intent_answers).length > 0)
+        options.intent_answers = intent_answers;
       if (should_remind !== undefined) options.should_remind = should_remind;
       if (large_consume_agreed !== undefined)
         options.large_consume_agreed = large_consume_agreed;

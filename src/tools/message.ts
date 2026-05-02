@@ -43,7 +43,7 @@ Use \`send_message\` only when you want async control: send the message, do othe
 
 Required: ratio — the video aspect ratio (9:16, 16:9, 1:1, 4:3, 3:4, 3:2, 2:3, 21:9).
 
-Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedance_reference_url, workflow, entry_template_id, creative_brief, should_remind, large_consume_agreed.`,
+Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedance_reference_url, workflow, entry_template_id, intent_answers, should_remind, large_consume_agreed.`,
     {
       project_id: z.string(),
       content: z
@@ -94,11 +94,11 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
         .describe(
           "Showcase entry-template id (e.g. 'storyboard-grid'); routes the agent to showcase creation",
         ),
-      creative_brief: z
-        .record(z.string(), z.string())
+      intent_answers: z
+        .record(z.string(), z.record(z.string(), z.string()))
         .optional()
         .describe(
-          "Structured brief from the brief wizard (duration, delivery, narrative_style, visual_style, music_mood, platform, pacing, etc.)",
+          "Confirmed picks from clarify_intent cards. Outer key is the answers_key (e.g. 'creative_brief', 'video_engine_pick'); inner map is question.key → chosen value (e.g. {duration: '15s', visual_style: 'natural_organic', ratio: '9:16', platform: 'tiktok_reels'}).",
         ),
       should_remind: z
         .boolean()
@@ -121,7 +121,7 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
       seedance_reference_url,
       workflow,
       entry_template_id,
-      creative_brief,
+      intent_answers,
       should_remind,
       large_consume_agreed,
     }) => {
@@ -180,8 +180,8 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
         options.seedance_reference_url = resolvedSeedanceRef;
       if (workflow) options.workflow = workflow;
       if (entry_template_id) options.entry_template_id = entry_template_id;
-      if (creative_brief && Object.keys(creative_brief).length > 0)
-        options.creative_brief = creative_brief;
+      if (intent_answers && Object.keys(intent_answers).length > 0)
+        options.intent_answers = intent_answers;
       if (should_remind !== undefined) options.should_remind = should_remind;
       if (large_consume_agreed !== undefined)
         options.large_consume_agreed = large_consume_agreed;

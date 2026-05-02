@@ -97,8 +97,9 @@ The call blocks until the agent run completes, pauses, is cancelled, errors, or 
 - \`workflow\`: pin to one of brand_dna / product / character / visual_hooks /
   product_highlights / story_creative / campaign_planning.
 - \`entry_template_id\`: showcase entry-card id (e.g. "storyboard-grid").
-- \`creative_brief\`: structured brief from the brief wizard
-  (duration, delivery, narrative_style, visual_style, music_mood, platform, pacing…).
+- \`intent_answers\`: confirmed picks from clarify_intent cards. Outer key
+  is the \`answers_key\` (e.g. \`creative_brief\`, \`video_engine_pick\`);
+  inner map is \`question.key → chosen value\`.
 - \`should_remind\` / \`large_consume_agreed\`: opt out of large-consumption
   reminders or pre-acknowledge cost so the agent does not pause.
 
