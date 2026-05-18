@@ -306,9 +306,6 @@ try {
   // ---- Project new endpoints ------------------------------------------
 
   if (createdProjectId) {
-    await runner.step("get_project_chronicle (likely empty)", async () => {
-      await call("get_project_chronicle", { project_id: createdProjectId });
-    });
     await runner.step("generate_project_name", async () => {
       try {
         await call("generate_project_name", { project_id: createdProjectId });
@@ -323,10 +320,54 @@ try {
   await runner.step("list_seedance_history", async () => {
     await call("list_seedance_history", { page: 1, page_size: 5 });
   });
+  await runner.step("list_video_ad_templates (drift check)", async () => {
+    const text = await call("list_video_ad_templates", {});
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `list_video_ad_templates did not return JSON: ${text.slice(0, 120)}`,
+      );
+    }
+    if (!Array.isArray(parsed)) {
+      throw new Error("list_video_ad_templates did not return an array");
+    }
+    const expected = [
+      "UGC",
+      "Tutorial",
+      "Unboxing",
+      "Hyper_Motion",
+      "Product_Review",
+      "TV_Spot",
+      "Wild_Card",
+      "UGC_Virtual_Try_On",
+      "Pro_Virtual_Try_On",
+      "Direct",
+    ];
+    const got = (parsed as Array<{ value?: string }>)
+      .map((t) => t.value)
+      .filter((v): v is string => typeof v === "string");
+    const missing = expected.filter((v) => !got.includes(v));
+    const extra = got.filter((v) => !expected.includes(v));
+    if (missing.length || extra.length) {
+      throw new Error(
+        `template drift — missing: [${missing.join(", ")}], extra: [${extra.join(", ")}]. ` +
+          `Re-sync VIDEO_AD_TEMPLATES (services/mcp/src/tools/project.ts) with seedanceAllowedModules ` +
+          `(services/api/internal/transport/rest/project/seedance_direct.go) and the smoke test 'expected' list.`,
+      );
+    }
+    console.log(
+      `    → ${got.length} templates: ${got.slice(0, 4).join(", ")}, …`,
+    );
+  });
   await runner.step("list_showcase", async () => {
     await call("list_showcase", { page: 1, page_size: 5 });
   });
-  runner.skip("seedance_generate", "spends credits + takes minutes");
+  runner.skip(
+    "seedance_generate",
+    'spends credits + takes minutes — manual: { module: "UGC", prompt: "...", image_url: ["https://..."] }',
+  );
   runner.skip(
     "copy_project / add_showcase / remove_showcase",
     "debug-gated server-side",

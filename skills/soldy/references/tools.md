@@ -248,14 +248,6 @@ No parameters.
 
 ## Project — extended endpoints
 
-### get_project_chronicle
-
-Read the agent's running narrative for a project (the markdown chronicle the agent maintains in GCS as the conversation evolves). Returns null if the agent hasn't written one yet.
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `project_id` | string | yes | Project ID |
-
 ### copy_project
 
 Copy a project plus its messages and brand/product assignments. Returns the new project. **Debug-gated server-side** — only works for accounts with the `enable_debug` Statsig gate.
@@ -284,7 +276,7 @@ Manage the org's showcase gallery. `add` and `remove` are debug-gated.
 
 ### seedance_generate
 
-Submit a Seedance video task **directly** (bypasses the conversational agent). Returns a `task_id` immediately; poll with `get_seedance_task`. Use when you want raw control: a prompt + media + duration/ratio with no creative-direction back-and-forth. For creative iteration, prefer `chat` with `input_mode="seedance"`.
+Submit a Seedance video task **directly** (bypasses the conversational agent). Returns a `task_id` and public read-only share link immediately; poll with `get_seedance_task`. Use when you want raw control: a prompt + media + duration/ratio with no creative-direction back-and-forth. For creative iteration, prefer `chat` with `input_mode="seedance"`.
 
 | Parameter | Type | Required | Notes |
 |---|---|---|---|
@@ -299,15 +291,23 @@ Submit a Seedance video task **directly** (bypasses the conversational agent). R
 
 ### get_seedance_task
 
-Poll a Seedance task by ID.
+Poll a Seedance task by ID. Returns status, the public read-only Video Ads share link, and result JSON when available.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `task_id` | string | yes | From `seedance_generate` |
 
+### get_seedance_share_link
+
+Return the public read-only web share URL for a Video Ads / Marketing Studio task.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `task_id` | string | yes | Seedance task ID |
+
 ### list_seedance_history
 
-Paginated list of Seedance tasks, optional status filter (`pending`, `running`, `succeeded`, `failed`).
+Paginated list of Seedance tasks, optional status filter (`pending`, `running`, `succeeded`, `failed`). Rows include the same public share link as `get_seedance_share_link`.
 
 ---
 

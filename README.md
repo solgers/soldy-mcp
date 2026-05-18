@@ -46,6 +46,7 @@ Get your API key at [app.soldy.ai/app/settings](https://app.soldy.ai/app/setting
 - Extract brand identity from a product URL or website
 - Send generation requests with text prompts and reference media (local files or URLs)
 - Monitor generation progress, pause/resume, and retrieve final assets
+- Share generated Video Ads via public read-only links
 
 ## License
 

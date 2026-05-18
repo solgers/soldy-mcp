@@ -1,13 +1,26 @@
 ---
 name: soldy
-description: "Soldy AI is a conversational creative agent that turns product/brand context into broadcast-quality video ads, social images, product shots, and brand identities. It is a collaborator you talk with over multiple turns, not a one-shot job runner. Use this skill whenever the user wants to create, refine, or iterate on video ads, product videos, brand commercials, narrative/comedic/emotional ads, social ad creatives, product photography, or brand identities — and whenever they mention TikTok ads, YouTube ads, Instagram Reels, ad creatives, storyboards, shot lists, aspect ratios, brand extraction, or animating images. Also triggers on: Soldy, soldy.ai, @soldy_ai/mcp, create_project, chat, send_message, extract_brand, get_updates, get_project_materials, Seedance, Seedance 2.0, image-to-video, animate image, reference image video."
+description: "Soldy AI offers two first-class paths for creating video content: (A) a conversational creative agent for multi-shot, brand-aware iteration, and (B) a Marketing Studio / Video Ads template path for one-shot template-driven generation (UGC, Unboxing, Tutorial, Product Review, TV Spot, Hyper Motion, Wild Card, Virtual Try On). Use this skill whenever the user wants to create, refine, or iterate on video ads, product videos, brand commercials, narrative/comedic/emotional ads, social ad creatives, product photography, brand identities, or any template-style ad — and whenever they mention TikTok ads, YouTube ads, Instagram Reels, ad creatives, storyboards, shot lists, aspect ratios, brand extraction, animating images, marketing studio, video ad template, UGC ad, unboxing video, tutorial video, product review video, or virtual try on. Also triggers on: Soldy, soldy.ai, @soldy_ai/mcp, create_project, chat, send_message, extract_brand, get_updates, get_project_materials, list_video_ad_templates, seedance_generate, Seedance, Seedance 2.0, image-to-video, animate image, reference image video."
 ---
 
 # Soldy AI
 
-Soldy is a **conversational creative agent**. A Soldy *project* is a *conversation*, not a job ticket. You and the user talk to Soldy over multiple turns, just like you'd talk to a human creative director — they propose, you react, they refine. Brands are persistent memory the conversation can lean on. Iteration is the default mode, not an exception.
+Soldy exposes **two first-class paths** for video creation. Pick the one that matches the user's intent — neither is "primary", and routing the wrong one wastes time on both sides.
 
-If you remember nothing else from this skill, remember this: **don't dump the user's first sentence into `chat` and walk away.** That's the equivalent of forwarding a one-line email to a creative agency and expecting a finished commercial back. It's not how Soldy is designed to be used and it's not how the user experiences Soldy on the web — they land on a chat surface and are *guided into* creation.
+| Path | Tool | Use when |
+|---|---|---|
+| **A. Conversational agent** | `chat` (multi-turn project) | The user wants creative direction, brand-aware iteration, multi-shot storyboarding, or any back-and-forth. |
+| **B. Video Ad templates** | `seedance_generate` + `module` | The user picked a template (UGC, Unboxing, Tutorial, Product Review, TV Spot, Hyper Motion, Wild Card, Virtual Try On) or just wants one rendered video from a prompt + reference. |
+
+Discover Path B templates with **`list_video_ad_templates`**. The two paths share brand and material tooling but otherwise live independently.
+
+## Path A: conversational agent (`chat`)
+
+A Soldy *project* on this path is a *conversation*, not a job ticket. You and the user talk to Soldy over multiple turns, just like you'd talk to a human creative director — they propose, you react, they refine. Brands are persistent memory the conversation can lean on. Iteration is the default mode, not an exception.
+
+For Path A specifically: **don't dump the user's first sentence into `chat` and walk away.** That's the equivalent of forwarding a one-line email to a creative agency and expecting a finished commercial back. It's not how Soldy is designed to be used and it's not how the user experiences Soldy on the web — they land on a chat surface and are *guided into* creation.
+
+(For Path B template requests, the opposite rule applies — see "Path B" below: **don't** funnel template-mode requests into `chat`.)
 
 ## The mental model
 
@@ -22,21 +35,23 @@ A few consequences of that model:
 
 ## What Soldy can do
 
-This is a capability map, not a recipe. Pick what fits the conversation.
+This is a capability map, not a recipe. Pick what fits the conversation. The capabilities below cluster around the two paths laid out above.
 
-- **Brand memory** — extract a brand identity from a product URL (`extract_brand`), then reuse that `brand_id` across any number of projects so colors, tone, and positioning stay consistent. `extract_brand` blocks until done by default.
-- **Generate** — video ads (TikTok / Reels / YouTube / square), product videos, narrative and story ads (comedic, emotional, cultural, conversion modes), social ad images, product photography, and music/soundtracks.
-- **Iterate at any granularity** — re-do a single shot, swap the music, change the tone across all shots, adapt 16:9 -> 9:16 with smart recomposition (not just cropping), or rethink the creative direction entirely. Lower-granularity iterations are faster and preserve more of the prior work.
-- **Direct fast-paths for users who already know what they want.** The most important one: **Seedance mode**. If the user has a reference image and just wants it animated into a short video, calling `chat` with `input_mode: "seedance"` and `seedance_reference_url` skips the entire creative-direction pipeline and drives Seedance 2.0 directly. This is the right call for "animate this image" requests; it would be wrong for "make me a TikTok ad."
+- **Brand memory** *(shared)* — extract a brand identity from a product URL (`extract_brand`), then reuse that `brand_id` across any number of projects so colors, tone, and positioning stay consistent. `extract_brand` blocks until done by default.
+- **Path A — Conversational generation** — video ads (TikTok / Reels / YouTube / square), product videos, narrative and story ads (comedic, emotional, cultural, conversion modes), social ad images, product photography, and music/soundtracks. Use `chat` on a project; iterate over multiple turns.
+- **Path A — Iterate at any granularity** — re-do a single shot, swap the music, change the tone across all shots, adapt 16:9 → 9:16 with smart recomposition (not just cropping), or rethink the creative direction entirely. Lower-granularity iterations are faster and preserve more of the prior work.
+- **Path B — Video Ad / Marketing Studio templates** — render a complete, polished ad from a template + product image + short prompt in one call. Templates: UGC, Tutorial, Unboxing, Hyper Motion, Product Review, TV Spot, Wild Card, UGC Virtual Try On, Pro Virtual Try On. Discover the catalog with `list_video_ad_templates`; submit with `seedance_generate` (`module` = the template `value`); poll with `get_seedance_task`; share with `get_seedance_share_link`. This is the right call when the user has named a template or just wants one finished video — *not* a starting point for back-and-forth iteration.
+- **Direct image-to-video (no template)** — for "animate this product image" with no template style attached, you can still use `chat` with `input_mode: "seedance"` + `seedance_reference_url` (Path A's image-to-video shortcut). For template-styled animation, prefer Path B.
 
 ## Reading the user — pick the depth that fits
 
 The same skill should serve a user with a vague idea *and* a user who arrives with a fully-formed brief. The right interaction depth depends on signals from the user, not on a fixed checklist. Here's how to read those signals:
 
-- **Vague intent** — "I want to make some kind of ad for my coffee shop." The user wants to be guided. Treat this like a kickoff meeting. Offer to extract their brand if they have a URL. Ask the questions a creative director would ask: target platform, length, tone, what the ad is supposed to *do* (awareness? conversion? brand?). When you do call `chat`, frame it as a starting prompt — and expect Soldy to come back with proposals or questions that you should bring back to the user before continuing.
-- **Concrete brief** — "Make a 15s 9:16 comedic ad for product X, here's the brand_id, here's the photo." The user is ready. Don't drag them through clarifying questions they've already answered. One well-formed `chat` call. You can still surface Soldy's intermediate decisions, but you don't need to prompt for them.
-- **Reference-driven** — "Animate this product photo into a short loop." Skip the full pipeline. This is what Seedance mode is for.
-- **Mid-conversation refinement** — the user is reacting to something Soldy already produced. Iterate on the same project. Translate their feedback ("the ending feels flat") into an iteration message via `chat`; don't restart.
+- **Vague intent (Path A)** — "I want to make some kind of ad for my coffee shop." The user wants to be guided. Treat this like a kickoff meeting. Offer to extract their brand if they have a URL. Ask the questions a creative director would ask: target platform, length, tone, what the ad is supposed to *do* (awareness? conversion? brand?). When you do call `chat`, frame it as a starting prompt — and expect Soldy to come back with proposals or questions that you should bring back to the user before continuing.
+- **Concrete brief (Path A)** — "Make a 15s 9:16 comedic ad for product X, here's the brand_id, here's the photo." The user is ready. Don't drag them through clarifying questions they've already answered. One well-formed `chat` call. You can still surface Soldy's intermediate decisions, but you don't need to prompt for them.
+- **Template-driven (Path B)** — "Make me a UGC ad for this product." / "Render an unboxing video using this photo." / "I want a product review style clip." The user named a Marketing Studio template. **Do not route this through `chat`.** Call `list_video_ad_templates` if you're unsure of the exact `module` value, then call `seedance_generate` with the matching `module` + the product image. Poll with `get_seedance_task`.
+- **Reference-driven, no template (Path A image-to-video)** — "Animate this product photo into a short loop." No template style attached. Use `chat` with `input_mode: "seedance"` + `seedance_reference_url`. (If they *did* mention a template, it's Path B instead.)
+- **Mid-conversation refinement (Path A)** — the user is reacting to something Soldy already produced. Iterate on the same project. Translate their feedback ("the ending feels flat") into an iteration message via `chat`; don't restart.
 
 You have permission to *choose* the depth. The skill is intentionally not giving you a numbered procedure, because the right procedure depends on what the user actually said.
 
@@ -63,8 +78,9 @@ These are judgment cards, not a workflow. Read them as "if you find yourself in 
 - **The user gives feedback on a shot or the music.** Iterate via `chat` on the same project. The project remembers everything — brand, look reference, characters, prior shots. A new project would lose all of that and force Soldy to rebuild from scratch.
 - **The `chat` response timed out.** Generation is still running. Use `get_updates(project_id, cursor)` with the cursor from the `chat` response to check for new results. Tell the user it's still working.
 - **The user mentions a product URL but you don't have a brand yet.** Offer to `extract_brand` first. Soldy does **not** auto-extract URLs that appear inside message text — that step has to be explicit, and you'll get much better output if you do it.
-- **The user says "use this image" or "animate this".** Reach for Seedance mode (`input_mode: "seedance"` + `seedance_reference_url`) instead of triggering the full creative pipeline. It's faster and matches their intent.
-- **The user gave you a one-liner like "make me an ad".** Don't paste it into `chat`. Ask the questions a human director would ask first. The output from a one-liner will be generic and the user will be disappointed.
+- **The user says "use this image" or "animate this" with no template.** Reach for `chat` with `input_mode: "seedance"` + `seedance_reference_url` instead of triggering the full creative pipeline. It's faster and matches their intent.
+- **The user named a Marketing Studio template** ("UGC ad", "unboxing", "product review", "tutorial", "TV spot", "virtual try on"). This is **Path B**. Call `seedance_generate` with the matching `module` directly — do **not** route through `chat`. If the template name is ambiguous, call `list_video_ad_templates` first.
+- **The user gave you a one-liner like "make me an ad" (no template, no concrete brief).** Don't paste it into `chat`. Ask the questions a human director would ask first. The output from a one-liner will be generic and the user will be disappointed.
 - **You're not sure whether to iterate or restart.** Default to iterate. Restart only when the creative direction itself is wrong (different product, wrong format type, fundamentally different concept). Tone, lighting, music, pacing, and individual shots are all iteration territory.
 
 ## Boundaries — what *not* to do
@@ -89,8 +105,8 @@ Full parameter docs: [references/tools.md](references/tools.md). One-line summar
 - `create_project(name, brand_id?, ratio?)` — open a new conversation with Soldy.
 - `list_projects()` / `get_project(project_id)` — find or inspect projects.
 
-**Conversation**
-- `chat(project_id, message, ratio, ...)` — **primary tool**. Sends a message and waits for the complete agent response. Returns status, messages, materials, and a cursor.
+**Path A — Conversation**
+- `chat(project_id, message, ratio, ...)` — **the Path A entrypoint**. Sends a message and waits for the complete agent response. Returns status, messages, materials, and a cursor.
 - `send_message(project_id, content, ratio, ...)` — fire-and-forget alternative (doesn't wait for response).
 - `list_messages(project_id)` — read the full conversation history.
 
@@ -102,20 +118,24 @@ Full parameter docs: [references/tools.md](references/tools.md). One-line summar
 **Control**
 - `pause_project` / `continue_project` / `stop_project` — pause for review, resume after a user decision, or stop entirely. Note: Soldy itself sometimes puts a project into `pause`; that's a *user* decision point, not a control you should auto-resolve.
 
-**Standalone workflows (alternatives to `chat` when the ask is deterministic)**
+**Path B — Video Ads / Marketing Studio (template-driven, one-shot)**
+- `list_video_ad_templates()` — discover available templates (UGC, Tutorial, Unboxing, Product_Review, TV_Spot, Hyper_Motion, Wild_Card, UGC_Virtual_Try_On, Pro_Virtual_Try_On, Direct). Each entry's `value` is what you pass as `module`.
+- `seedance_generate({ prompt, image_url, module, ratio, ... })` — submit a Video Ad / Marketing Studio task. Returns a `task_id` immediately. **Use this — not `chat` — when the user named a template.**
+- `get_seedance_task(task_id)` — poll until `status` is `succeeded` or `failed`. Generation typically takes 1–3 minutes and returns the public read-only share URL.
+- `get_seedance_share_link(task_id)` — get the web share page for a Video Ads task (`/app/share/video-ads/{task_id}`).
+- `list_seedance_history` — past Seedance tasks for the user, including share links.
+
+**Other standalone workflows (alternatives to `chat` when the ask is deterministic)**
 - `recast_generate` — restyle an existing source video (Style Transfer / Object Replacement).
 - `cinead_generate` — match a product to a famous movie scene + render an ad with Hook/Body/CTA script.
 - `imagekit_generate` — produce a marketing image kit (Shopify / Amazon / Meta layouts) for one product photo.
-- `seedance_generate` — submit a Seedance task directly (raw, bypasses the conversational agent). Use for "just run this prompt" intents; for "animate this image" prefer `chat` with `input_mode: "seedance"`.
 - `generate_look_reference` / `generate_cast_design` — single-shot agent primitives that don't need a project.
 
 When to reach past `chat`: see [references/best-practices.md](references/best-practices.md#when-to-reach-past-chat-—-standalone-workflows-—-primitives) — rule of thumb is "if the ask reduces to one specific deterministic deliverable, the standalone tool is faster and clearer."
 
 **Project introspection (extended)**
-- `get_project_chronicle` — read the agent's running narrative for a project (markdown).
 - `generate_project_name` — ask the agent to suggest a name (after first user message exists).
 - `add_showcase` / `remove_showcase` / `list_showcase` — manage org's showcase gallery (`add` / `remove` are debug-gated).
-- `seedance_generate` / `get_seedance_task` / `list_seedance_history` — direct Seedance task lifecycle.
 - `fetch_brand_social` — pull recent social-media posts for a brand (Apify-backed, gate-controlled).
 - `get_tool_task` / `list_tool_tasks` — poll any standalone agent primitive (look-reference, cast-design, ...).
 

@@ -2,6 +2,7 @@
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./server.js";
+import { resolveWebUrl } from "./web-links.js";
 
 const apiKey = process.env.SOLDY_API_KEY;
 if (!apiKey) {
@@ -11,14 +12,15 @@ if (!apiKey) {
 }
 
 const apiUrl = process.env.SOLDY_API_URL ?? "https://api.soldy.ai";
+const webUrl = resolveWebUrl(apiUrl, process.env.SOLDY_WEB_URL);
 
-const { server, connection } = createServer(apiUrl, apiKey);
+const { server, connection } = createServer(apiUrl, apiKey, webUrl);
 const transport = new StdioServerTransport();
 
 await server.connect(transport);
 
 // Log to stderr (stdout is reserved for JSON-RPC)
-console.error(`Soldy MCP server running (API: ${apiUrl})`);
+console.error(`Soldy MCP server running (API: ${apiUrl}, Web: ${webUrl})`);
 
 // Graceful shutdown
 const shutdown = () => {

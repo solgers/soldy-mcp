@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SoldyAPIClient } from "../client.js";
 import { formatApiError } from "../errors.js";
+import { chatUrl, DEFAULT_WEB_URL, seedanceShareUrl } from "../web-links.js";
 
 interface Project {
   id: string;
@@ -13,9 +14,90 @@ interface Project {
   brand_id: string;
 }
 
+// ---------------------------------------------------------------------------
+// Video Ads / Marketing Studio shared schemas + template catalog
+//
+// Backend source of truth lives in services/api: `_SeedanceMediaRef` struct
+// and `seedanceAllowedModules` in
+//   internal/transport/rest/project/seedance_direct.go
+// The web preset metadata lives in
+//   services/web/lib/generator/marketing-studio-presets.ts
+// Keep both in sync with the entries below; the smoke test asserts drift.
+// ---------------------------------------------------------------------------
+
+const MEDIA_REF_SCHEMA = z.union([
+  z.string(),
+  z.object({ url: z.string(), id: z.string().optional() }),
+]);
+
+type MediaRefInput = z.infer<typeof MEDIA_REF_SCHEMA>;
+
+function toRef(m: MediaRefInput): { url: string; id?: string } {
+  return typeof m === "string" ? { url: m } : m;
+}
+
+interface VideoAdTemplate {
+  value: string;
+  name: string;
+  description: string;
+}
+
+// 9 user-facing templates + the implicit "Direct" fallback. `value` matches
+// the backend's `seedanceAllowedModules` enum exactly.
+const VIDEO_AD_TEMPLATES: VideoAdTemplate[] = [
+  { value: "UGC", name: "UGC", description: "Authentic user-style content." },
+  {
+    value: "Tutorial",
+    name: "Tutorial",
+    description: "Step-by-step tutorials.",
+  },
+  {
+    value: "Unboxing",
+    name: "Unboxing",
+    description: "High-quality unboxing.",
+  },
+  {
+    value: "Hyper_Motion",
+    name: "Hyper Motion",
+    description: "Highlight your product with hyper-motion energy.",
+  },
+  {
+    value: "Product_Review",
+    name: "Product Review",
+    description: "Authentic product review.",
+  },
+  {
+    value: "TV_Spot",
+    name: "TV Spot",
+    description: "Authentic stories, broadcast-quality amplification.",
+  },
+  {
+    value: "Wild_Card",
+    name: "Wild Card",
+    description: "Unique creative mode for custom ideas.",
+  },
+  {
+    value: "UGC_Virtual_Try_On",
+    name: "UGC Virtual Try On",
+    description: "Try-before-you-buy in UGC style.",
+  },
+  {
+    value: "Pro_Virtual_Try_On",
+    name: "Pro Virtual Try On",
+    description: "Advanced virtual try-on with polished output.",
+  },
+  {
+    value: "Direct",
+    name: "Direct",
+    description:
+      "Default fallback (no template). Generation runs from your prompt + media without a Marketing Studio preset.",
+  },
+];
+
 export function registerProjectTools(
   server: McpServer,
   client: SoldyAPIClient,
+  webUrl = DEFAULT_WEB_URL,
 ) {
   server.tool(
     "create_project",
@@ -62,7 +144,7 @@ export function registerProjectTools(
         content: [
           {
             type: "text" as const,
-            text: `Project created: **${p.name}** (ID: \`${p.id}\`, status: ${p.status})\nUse send_message to start generating.\nWeb: https://soldy.ai/app/chat/${p.id}`,
+            text: `Project created: **${p.name}** (ID: \`${p.id}\`, status: ${p.status})\nUse send_message to start generating.\nWeb: ${chatUrl(webUrl, p.id)}`,
           },
         ],
       };
@@ -88,7 +170,7 @@ export function registerProjectTools(
         content: [
           {
             type: "text" as const,
-            text: `| Field | Value |\n|---|---|\n| ID | \`${p.id}\` |\n| Name | ${p.name} |\n| Status | ${p.status} |\n| Ratio | ${p.ratio} |\n| Created | ${p.created_at} |\n\nWeb: https://soldy.ai/app/chat/${p.id}`,
+            text: `| Field | Value |\n|---|---|\n| ID | \`${p.id}\` |\n| Name | ${p.name} |\n| Status | ${p.status} |\n| Ratio | ${p.ratio} |\n| Created | ${p.created_at} |\n\nWeb: ${chatUrl(webUrl, p.id)}`,
           },
         ],
       };
@@ -216,51 +298,14 @@ Status meanings:
         }
       }
 
-      output += `\nWeb: https://soldy.ai/app/chat/${project_id}`;
+      output += `\nWeb: ${chatUrl(webUrl, project_id)}`;
       return { content: [{ type: "text" as const, text: output }] };
     },
   );
 
   // ---------------------------------------------------------------------
-  // Chronicle / copy / gen-name / showcase / seedance
+  // copy / gen-name / showcase / seedance
   // ---------------------------------------------------------------------
-
-  server.tool(
-    "get_project_chronicle",
-    "Get the project's session chronicle markdown — a running narrative the agent writes for itself across the conversation. Returns null if the agent hasn't written one yet.",
-    { project_id: z.string() },
-    async ({ project_id }) => {
-      const resp = await client.get<{
-        content: string;
-        updated_at: string;
-        file_name: string;
-      } | null>("/public/project/chronicle", { id: project_id });
-      if (resp.code !== 0) {
-        return {
-          content: [{ type: "text" as const, text: formatApiError(resp) }],
-          isError: true,
-        };
-      }
-      if (!resp.data || !resp.data.content) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "No chronicle yet — the agent hasn't written one for this project.",
-            },
-          ],
-        };
-      }
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: `Chronicle (${resp.data.file_name}, updated ${resp.data.updated_at}):\n\n${resp.data.content}`,
-          },
-        ],
-      };
-    },
-  );
 
   server.tool(
     "copy_project",
@@ -406,40 +451,113 @@ Status meanings:
     },
   );
 
-  // -- Seedance direct (non-conversational; orchestrate generation in one shot)
+  // -- Video Ads / Marketing Studio (one-shot template-driven generation)
+  //
+  // First-class peer to the conversational `chat` path. Use when the user has
+  // picked a template (UGC, Tutorial, Unboxing, ...) or just wants a single
+  // video rendered — not when they want creative direction & iteration.
+
+  server.tool(
+    "list_video_ad_templates",
+    `List the available Video Ad / Marketing Studio templates. Each entry's \`value\` is what you pass as \`module\` to \`seedance_generate\`.
+
+Call this whenever the user asks for a template-style ad ("UGC", "unboxing video", "product review", "tutorial", etc.) and you need to confirm the available presets or pick the right \`module\` value. The list is small and stable; you can also pass \`module\` directly if you already know the value.`,
+    {},
+    async () => ({
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(VIDEO_AD_TEMPLATES, null, 2),
+        },
+      ],
+    }),
+  );
 
   server.tool(
     "seedance_generate",
-    `Submit a Seedance video task directly (bypasses the conversational agent). Returns a task_id immediately; poll with \`get_seedance_task\`.
+    `Generate a **Video Ad / Marketing Studio** video. Pick a \`module\` template (call \`list_video_ad_templates\` for the full catalog with descriptions) and attach product/avatar references in \`image_url\`.
 
-Use when you want raw control: just a prompt + media + duration/ratio, no creative-direction back-and-forth. For creative iteration, prefer \`chat\` with input_mode="seedance".
+Returns a \`task_id\` immediately; poll with \`get_seedance_task\`. Use this whenever the user has chosen a template or just wants a single video rendered from a prompt + reference. For multi-shot, brand-aware, conversational creative direction, use \`chat\` instead — both paths are first-class.
 
 Allowed:
 - model: "doubao-seedance-2-0-260128" (default) | "doubao-seedance-2-0-fast-260128"
 - resolution: "480p" | "720p" | "1080p"
-- ratio: "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "21:9" | "adaptive"
+- ratio / input_ratio: "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "21:9" | "adaptive" (default 9:16)
 - duration: -1 (auto) or 4-15 seconds (default 10)
-- module: "Direct" (default) | "UGC" | "Tutorial" | "Unboxing" | "Hyper_Motion" | "Product_Review" | "TV_Spot" | "Wild_Card" | "UGC_Virtual_Try_On" | "Pro_Virtual_Try_On"`,
+- module: "Direct" (default; no template) | "UGC" | "Tutorial" | "Unboxing" | "Hyper_Motion" | "Product_Review" | "TV_Spot" | "Wild_Card" | "UGC_Virtual_Try_On" | "Pro_Virtual_Try_On"`,
     {
-      prompt: z.string(),
-      image_url: z.array(z.string()).optional(),
-      video_url: z.array(z.string()).optional(),
-      audio_url: z.array(z.string()).optional(),
-      duration: z.number().int().optional(),
-      ratio: z.string().optional(),
-      input_ratio: z.string().optional(),
-      model: z.string().optional(),
-      resolution: z.enum(["480p", "720p", "1080p"]).optional(),
-      module: z.string().optional(),
+      prompt: z.string().describe("Generation prompt."),
+      image_url: z
+        .array(MEDIA_REF_SCHEMA)
+        .optional()
+        .describe(
+          "Reference image(s). Plain URL strings, or { url, id } objects where `id` references an item from the user's material library (same shape the web Video Ads composer sends).",
+        ),
+      video_url: z
+        .array(MEDIA_REF_SCHEMA)
+        .optional()
+        .describe(
+          "Reference video(s). Plain URL strings, or { url, id } objects (same shape as image_url).",
+        ),
+      audio_url: z
+        .array(MEDIA_REF_SCHEMA)
+        .optional()
+        .describe(
+          "Reference audio track(s). Plain URL strings, or { url, id } objects (same shape as image_url).",
+        ),
+      duration: z
+        .number()
+        .int()
+        .optional()
+        .describe("Seconds. -1 (auto) or 4-15. Default 10."),
+      ratio: z
+        .enum(["16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"])
+        .optional()
+        .describe("Output aspect ratio. Default 9:16."),
+      input_ratio: z
+        .enum(["16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"])
+        .optional()
+        .describe(
+          "Input reference aspect ratio. When set, the backend uses this in place of `ratio` for downstream tooling. Same allowed values as `ratio`.",
+        ),
+      model: z
+        .enum(["doubao-seedance-2-0-260128", "doubao-seedance-2-0-fast-260128"])
+        .optional()
+        .describe("Default doubao-seedance-2-0-260128."),
+      resolution: z
+        .enum(["480p", "720p", "1080p"])
+        .optional()
+        .describe("Output resolution. Default 720p."),
+      module: z
+        .enum([
+          "UGC",
+          "Direct",
+          "Tutorial",
+          "Unboxing",
+          "Hyper_Motion",
+          "Product_Review",
+          "TV_Spot",
+          "Wild_Card",
+          "UGC_Virtual_Try_On",
+          "Pro_Virtual_Try_On",
+        ])
+        .optional()
+        .describe(
+          "Marketing Studio template. Call list_video_ad_templates to see descriptions. Default Direct (no template).",
+        ),
+      callback_url: z
+        .string()
+        .url()
+        .optional()
+        .describe(
+          "Optional HTTPS URL for Volcano Ark task callbacks (http only for localhost). Forwarded as callback_url on create.",
+        ),
     },
     async (args) => {
       const body: Record<string, unknown> = { prompt: args.prompt };
-      if (args.image_url?.length)
-        body.image_url = args.image_url.map((url) => ({ url }));
-      if (args.video_url?.length)
-        body.video_url = args.video_url.map((url) => ({ url }));
-      if (args.audio_url?.length)
-        body.audio_url = args.audio_url.map((url) => ({ url }));
+      if (args.image_url?.length) body.image_url = args.image_url.map(toRef);
+      if (args.video_url?.length) body.video_url = args.video_url.map(toRef);
+      if (args.audio_url?.length) body.audio_url = args.audio_url.map(toRef);
       for (const k of [
         "duration",
         "ratio",
@@ -447,6 +565,7 @@ Allowed:
         "model",
         "resolution",
         "module",
+        "callback_url",
       ] as const) {
         const v = args[k];
         if (v !== undefined) body[k] = v;
@@ -466,7 +585,7 @@ Allowed:
         content: [
           {
             type: "text" as const,
-            text: `Seedance task submitted (task: \`${resp.data.task_id}\`, status: ${resp.data.status}).\nPoll with get_seedance_task. Generation typically takes 1-3 minutes.`,
+            text: `Seedance task submitted (task: \`${resp.data.task_id}\`, status: ${resp.data.status}).\nShare: ${seedanceShareUrl(webUrl, resp.data.task_id)}\nPoll with get_seedance_task. Generation typically takes 1-3 minutes.`,
           },
         ],
       };
@@ -474,8 +593,22 @@ Allowed:
   );
 
   server.tool(
+    "get_seedance_share_link",
+    "Return the public read-only share URL for a Video Ad / Marketing Studio Seedance task. Use after seedance_generate or for any task from list_seedance_history.",
+    { task_id: z.string() },
+    async ({ task_id }) => ({
+      content: [
+        {
+          type: "text" as const,
+          text: `Share: ${seedanceShareUrl(webUrl, task_id)}`,
+        },
+      ],
+    }),
+  );
+
+  server.tool(
     "get_seedance_task",
-    "Poll a Seedance task by ID. Returns status (pending/running/succeeded/failed) and the result JSON when done.",
+    "Poll a Seedance task by ID. Returns status (pending/running/succeeded/failed), the public read-only share URL, and the result JSON when done.",
     { task_id: z.string() },
     async ({ task_id }) => {
       const resp = await client.get<{
@@ -494,6 +627,7 @@ Allowed:
       }
       const d = resp.data;
       const lines = [`Status: ${d.status}`, `Task ID: \`${d.id}\``];
+      lines.push(`Share: ${seedanceShareUrl(webUrl, d.id)}`);
       if (d.error) lines.push(`Error: ${d.error}`);
       if (d.charged_cost != null)
         lines.push(`Credits charged: ${d.charged_cost}`);
@@ -507,17 +641,19 @@ Allowed:
 
   server.tool(
     "list_seedance_history",
-    "List the user's Seedance task history (paginated, optional status filter).",
+    "List the user's Seedance task history (paginated; optional status and module_type mkt_studio|recast_studio).",
     {
       page: z.number().int().optional(),
       page_size: z.number().int().optional(),
       status: z.enum(["pending", "running", "succeeded", "failed"]).optional(),
+      module_type: z.enum(["mkt_studio", "recast_studio"]).optional(),
     },
-    async ({ page, page_size, status }) => {
+    async ({ page, page_size, status, module_type }) => {
       const params: Record<string, string> = {};
       if (page) params.page = String(page);
       if (page_size) params.page_size = String(page_size);
       if (status) params.status = status;
+      if (module_type) params.module_type = module_type;
       const resp = await client.get<
         Array<{
           id: string;
@@ -545,15 +681,15 @@ Allowed:
       const lines = [
         `Total ${resp.page?.total_count ?? items.length}, page ${page ?? 1}`,
         "",
-        "| ID | Status | Ratio | Duration | Cost | Prompt |",
-        "|---|---|---|---|---|---|",
+        "| ID | Status | Share | Ratio | Duration | Cost | Prompt |",
+        "|---|---|---|---|---|---|---|",
       ];
       for (const it of items) {
         const promptPreview = (it.prompt ?? "")
           .replace(/\n/g, " ")
           .slice(0, 60);
         lines.push(
-          `| \`${it.id}\` | ${it.status} | ${it.ratio ?? "—"} | ${it.duration ?? "—"}s | ${it.charged_cost ?? 0} | ${promptPreview} |`,
+          `| \`${it.id}\` | ${it.status} | [Link](${seedanceShareUrl(webUrl, it.id)}) | ${it.ratio ?? "—"} | ${it.duration ?? "—"}s | ${it.charged_cost ?? 0} | ${promptPreview} |`,
         );
       }
       return {
