@@ -1,6 +1,6 @@
 {
   "name": "@soldy_ai/mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Soldy AI MCP Server — video ad generation via Claude Desktop, Cursor, Claude Code",
   "type": "module",
   "bin": {

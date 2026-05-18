@@ -21,7 +21,7 @@ export function createServer(
   webUrl = DEFAULT_WEB_URL,
 ): { server: McpServer; connection: ConnectionManager } {
   const server = new McpServer(
-    { name: "Soldy AI", version: "0.3.0" },
+    { name: "Soldy AI", version: "0.3.1" },
     {
       capabilities: { tools: {}, prompts: {}, resources: {} },
       instructions: SERVER_INSTRUCTIONS,
