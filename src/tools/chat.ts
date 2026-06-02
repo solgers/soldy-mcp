@@ -57,16 +57,6 @@ If the response status is "timeout", generation is still running. Use get_update
         .string()
         .optional()
         .describe("Brand ID for generation context"),
-      input_mode: z
-        .enum(["agent", "seedance"])
-        .optional()
-        .describe(
-          "'agent' (default) runs full production pipeline. 'seedance' uses Seedance 2.0 direct video generation — requires seedance_reference_url.",
-        ),
-      seedance_reference_url: z
-        .string()
-        .optional()
-        .describe("Reference image for Seedance 2.0 mode"),
       workflow: z
         .enum([
           "brand_dna",
@@ -112,8 +102,6 @@ If the response status is "timeout", generation is still running. Use get_update
       ratio,
       material_urls,
       brand_id,
-      input_mode,
-      seedance_reference_url,
       workflow,
       entry_template_id,
       intent_answers,
@@ -121,19 +109,6 @@ If the response status is "timeout", generation is still running. Use get_update
       large_consume_agreed,
       timeout_seconds,
     }) => {
-      // Validate seedance mode
-      if (input_mode === "seedance" && !seedance_reference_url?.trim()) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "seedance_reference_url is required when input_mode='seedance'.",
-            },
-          ],
-          isError: true,
-        };
-      }
-
       // Resolve file URLs
       let resolvedUrls: string[] | undefined;
       if (material_urls?.length) {
@@ -152,32 +127,9 @@ If the response status is "timeout", generation is still running. Use get_update
         }
       }
 
-      let resolvedSeedanceRef: string | undefined;
-      if (seedance_reference_url?.trim()) {
-        try {
-          const [u] = await resolveUrls(client, [
-            seedance_reference_url.trim(),
-          ]);
-          resolvedSeedanceRef = u;
-        } catch (err) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Failed to process seedance_reference_url: ${err instanceof Error ? err.message : String(err)}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      }
-
       // Send message via HTTP
       const options: Record<string, unknown> = { ratio };
       if (brand_id) options.brand_id = brand_id;
-      if (input_mode) options.input_mode = input_mode;
-      if (resolvedSeedanceRef)
-        options.seedance_reference_url = resolvedSeedanceRef;
       if (workflow) options.workflow = workflow;
       if (entry_template_id) options.entry_template_id = entry_template_id;
       if (intent_answers && Object.keys(intent_answers).length > 0)

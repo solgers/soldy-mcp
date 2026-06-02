@@ -43,7 +43,7 @@ Use \`send_message\` only when you want async control: send the message, do othe
 
 Required: ratio — the video aspect ratio (9:16, 16:9, 1:1, 4:3, 3:4, 3:2, 2:3, 21:9).
 
-Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedance_reference_url, workflow, entry_template_id, intent_answers, should_remind, large_consume_agreed.`,
+Also supports: material_urls, brand_id, workflow, entry_template_id, intent_answers, should_remind, large_consume_agreed.`,
     {
       project_id: z.string(),
       content: z
@@ -63,18 +63,6 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
         .optional()
         .describe(
           "Brand ID for generation context. Get from list_brands or extract_brand.",
-        ),
-      input_mode: z
-        .enum(["agent", "seedance"])
-        .optional()
-        .describe(
-          "'agent' (default) runs the full production pipeline. 'seedance' uses Seedance 2.0 direct video generation from a single reference image — requires seedance_reference_url.",
-        ),
-      seedance_reference_url: z
-        .string()
-        .optional()
-        .describe(
-          "Reference image for Seedance 2.0. Required when input_mode='seedance'. Local file paths are auto-uploaded; GCS/http URLs pass through.",
         ),
       workflow: z
         .enum([
@@ -117,25 +105,12 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
       material_urls,
       ratio,
       brand_id,
-      input_mode,
-      seedance_reference_url,
       workflow,
       entry_template_id,
       intent_answers,
       should_remind,
       large_consume_agreed,
     }) => {
-      if (input_mode === "seedance" && !seedance_reference_url?.trim()) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "seedance_reference_url is required when input_mode='seedance'.",
-            },
-          ],
-          isError: true,
-        };
-      }
       let resolvedUrls: string[] | undefined;
       if (material_urls?.length) {
         try {
@@ -153,31 +128,8 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
         }
       }
 
-      let resolvedSeedanceRef: string | undefined;
-      if (seedance_reference_url?.trim()) {
-        try {
-          const [u] = await resolveUrls(client, [
-            seedance_reference_url.trim(),
-          ]);
-          resolvedSeedanceRef = u;
-        } catch (err) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Failed to process seedance_reference_url: ${err instanceof Error ? err.message : String(err)}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      }
-
       const options: Record<string, unknown> = { ratio };
       if (brand_id) options.brand_id = brand_id;
-      if (input_mode) options.input_mode = input_mode;
-      if (resolvedSeedanceRef)
-        options.seedance_reference_url = resolvedSeedanceRef;
       if (workflow) options.workflow = workflow;
       if (entry_template_id) options.entry_template_id = entry_template_id;
       if (intent_answers && Object.keys(intent_answers).length > 0)
@@ -208,12 +160,11 @@ Also supports: material_urls, brand_id, input_mode ("agent"/"seedance"), seedanc
         ? ` with ${resolvedUrls.length} material(s)`
         : "";
       const brandInfo = brand_id ? ` (brand: ${brand_id})` : "";
-      const modeInfo = input_mode === "seedance" ? " [mode: seedance 2.0]" : "";
       return {
         content: [
           {
             type: "text" as const,
-            text: `Message sent${matInfo}${brandInfo}${modeInfo}, ratio: ${ratio}. Status: ${resp.data.status}\nUse get_updates(project_id) to check for results, or get_project_status for a quick status check.`,
+            text: `Message sent${matInfo}${brandInfo}, ratio: ${ratio}. Status: ${resp.data.status}\nUse get_updates(project_id) to check for results, or get_project_status for a quick status check.`,
           },
         ],
       };

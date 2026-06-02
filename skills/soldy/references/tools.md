@@ -119,8 +119,6 @@ Quick status check. For blocking workflow, prefer `chat` which waits for complet
 | `ratio` | enum | **yes** | `9:16`, `16:9`, `1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9` |
 | `material_urls` | string[] | no | Image/video/audio URLs or local file paths |
 | `brand_id` | string | no | Brand ID for brand-aware generation |
-| `input_mode` | enum | no | `agent` (default, full pipeline) or `seedance` (direct Seedance 2.0 video) |
-| `seedance_reference_url` | string | no | Reference image for Seedance 2.0. **Required** when `input_mode='seedance'`. |
 | `timeout_seconds` | number | no | Max wait time (default 300 seconds / 5 minutes) |
 
 **Returns:** `{ status, messages, materials, cursor, elapsed_seconds, ... }`
@@ -131,23 +129,6 @@ Quick status check. For blocking workflow, prefer `chat` which waits for complet
 - `cursor`: for subsequent `get_updates` calls (useful on timeout)
 - `pause_reason`: why the agent paused (if status is `paused`)
 - `error_message`: what went wrong (if status is `error`)
-
-**Seedance 2.0 mode (`input_mode='seedance'`)**
-
-Bypasses the full creative-direction pipeline and drives Seedance 2.0 directly from a single reference image. Faster and lower-level — use when the user already has a strong reference and just wants a video from it.
-
-- `seedance_reference_url` is required (one image URL or local file path).
-- `message` can be empty — the agent builds the prompt from the reference. Pass `message` to steer motion, camera, or style.
-
-```
-chat({
-  project_id,
-  message: "slow push-in, soft backlight, 5s",
-  ratio: "9:16",
-  input_mode: "seedance",
-  seedance_reference_url: "./hero.jpg",
-})
-```
 
 ### send_message
 
@@ -160,8 +141,6 @@ Fire-and-forget alternative to `chat`. Sends a message and returns immediately w
 | `ratio` | enum | **yes** | `9:16`, `16:9`, `1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9` |
 | `material_urls` | string[] | no | Image/video/audio URLs or local file paths |
 | `brand_id` | string | no | Brand ID for brand-aware generation |
-| `input_mode` | enum | no | `agent` (default) or `seedance` |
-| `seedance_reference_url` | string | no | Reference image for Seedance 2.0. |
 
 After sending, use `get_updates(project_id)` to check for results, or `get_project_status` for a quick status check.
 
@@ -276,7 +255,7 @@ Manage the org's showcase gallery. `add` and `remove` are debug-gated.
 
 ### seedance_generate
 
-Submit a Seedance video task **directly** (bypasses the conversational agent). Returns a `task_id` and public read-only share link immediately; poll with `get_seedance_task`. Use when you want raw control: a prompt + media + duration/ratio with no creative-direction back-and-forth. For creative iteration, prefer `chat` with `input_mode="seedance"`.
+Submit a Seedance video task **directly** (bypasses the conversational agent). Returns a `task_id` and public read-only share link immediately; poll with `get_seedance_task`. Use when you want raw control: a prompt + media + duration/ratio with no creative-direction back-and-forth. For creative iteration, prefer `chat`.
 
 | Parameter | Type | Required | Notes |
 |---|---|---|---|

@@ -51,10 +51,6 @@ Static creatives for Instagram, Facebook, TikTok. Pipeline: references → compo
 
 E-commerce product photography and lifestyle staging.
 
-### Seedance fast-path
-
-When you call `send_message` with `input_mode: "seedance"` and a `seedance_reference_url`, Soldy bypasses creative direction entirely and drives Seedance 2.0 directly from the reference image. Use this for "animate this image" intents, not for "make me an ad".
-
 ## What "creative direction" produces
 
 When the full pipeline runs, the creative direction phase locks one strategic concept that downstream phases all key off. It includes:

@@ -229,9 +229,9 @@ checklist. Read the signals:
   product") → this is **Path B**. Switch to \`video_ads_workflow\` and call
   \`seedance_generate\` with the matching \`module\`. Do not route through
   \`chat\`.
-- **Reference-driven, no template** ("animate this image") → still Path A
-  for now: \`chat\` with input_mode: "seedance" + seedance_reference_url
-  uses the agent's image-to-video path.
+- **Reference-driven, no template** ("animate this image") → still Path A:
+  \`chat\` with the image passed via material_urls uses the agent's
+  image-to-video path.
 - **Mid-conversation refinement** → translate the user's feedback into an
   iteration message on the same project via \`chat\`. Don't restart.
 

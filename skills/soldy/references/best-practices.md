@@ -23,12 +23,12 @@ When you see these, slow down. Treat the first message as a kickoff conversation
 
 When you see these, don't drag them through clarifying questions. Compose one well-formed `chat` call and surface intermediate decisions only when Soldy itself pauses for input.
 
-**Signals it's a Seedance fast-path:**
+**Signals it's an image-to-video intent:**
 - "Animate this image."
 - "Turn this photo into a short loop."
 - "Make a 5-second video from this reference."
 
-Skip the creative pipeline entirely with `input_mode: "seedance"` and `seedance_reference_url`.
+Pass the reference image to `chat` via `material_urls`; Soldy's image-to-video path handles it without dragging the user through full creative direction.
 
 ## Phrasing a message so Soldy treats it as a turn
 
@@ -150,7 +150,7 @@ Then, once they pick, send a `chat` message saying which one to lock and resume.
 | "Restyle this video clip" | `recast_generate` |
 | "Make a movie-flavored ad from this product photo" | `cinead_generate` |
 | "Generate the Shopify/Amazon/Meta image set for this product" | `imagekit_generate` |
-| "Animate this single image" | `chat` with `input_mode: "seedance"` (the conversational shorthand) |
+| "Animate this single image" | `chat` with the image in `material_urls` |
 | "Just submit a Seedance task with this prompt" | `seedance_generate` (raw, bypasses agent) |
 | "Give me a single look-reference image with this palette" | `generate_look_reference` |
 | "Build me a cast brief from this character description" | `generate_cast_design` |
