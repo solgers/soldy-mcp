@@ -71,9 +71,7 @@ export function registerStandaloneTools(
 
 \`hex_palette\` must include all four keys: primary, secondary, accent, shadow (each "#RRGGBB"). Optional fields fine-tune tone: lighting, atmosphere, textures, ratio (default "16:9"). When include_product=true, supply product_image_url so the agent inserts it into the scene.
 
-With wait=true (default), blocks until the agent finishes (~1-3 min) and returns the result. With wait=false, returns a task_id for manual polling via get_tool_task.
-
-NOTE: gated server-side by the tools_access Statsig dynamic config.`,
+With wait=true (default), blocks until the agent finishes (~1-3 min) and returns the result. With wait=false, returns a task_id for manual polling via get_tool_task.`,
     {
       scene_description: z.string(),
       hex_palette: z.object({
@@ -173,9 +171,7 @@ NOTE: gated server-side by the tools_access Statsig dynamic config.`,
 
 \`style_mode\`: "realistic" (default) | "stylized" | "cartoon". \`reference_images\` and \`context\` are optional. Per-member hero image \`ratio\` defaults to 9:16.
 
-With wait=true (default), blocks until done (~5-10 min for multi-member casts). With wait=false, returns task_id for manual polling.
-
-NOTE: gated by the tools_access Statsig dynamic config.`,
+With wait=true (default), blocks until done (~5-10 min for multi-member casts). With wait=false, returns task_id for manual polling.`,
     {
       description: z.string(),
       context: z.string().optional(),

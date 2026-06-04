@@ -156,4 +156,3 @@ For all three, also surface `*_list_history` and `*_get_history_detail` to the u
 - **Look Reference**: hand-picked tool when the user wants a *single visual reference* (clean scene + annotated palette board) for a film/ad. The user supplies a written scene description plus a 4-color palette (`primary`, `secondary`, `accent`, `shadow`). Defaults block until done; pass `wait: false` for a `task_id` you can poll with `get_tool_task`.
 - **Cast Design**: hand-picked tool when the user wants a *cast brief* (archetype + visual prompt + per-member hero image). The user describes the cast in free form; the LLM infers methodology details (archetype, hyperbole trait, entity type). Same `wait` semantics.
 
-Both are gated by the `tools_access` Statsig dynamic config; if the gate is off for the account, the call returns a clear "not enabled" error.
