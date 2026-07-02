@@ -21,6 +21,11 @@ Resources are **read-only data accessors**. They provide the same data available
 
 For real-time interaction, use the `chat` tool (which sends a message and waits for the complete response) or `get_updates` (which returns events since a cursor). Do not poll resources in a loop.
 
+Unified Quick Generation video/image history is tool-only for now:
+use `video_list_tasks` / `video_get_task` / `video_get_lineage` and
+`image_list_tasks` / `image_get_task` / `image_get_lineage`. No
+`soldy://video/*` or `soldy://image/*` resource URI is exposed yet.
+
 ## WebSocket Internals
 
 The `chat` and `get_updates` tools use WebSocket connections internally:

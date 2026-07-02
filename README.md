@@ -43,6 +43,8 @@ Get your API key at [app.soldy.ai/app/settings](https://app.soldy.ai/app/setting
 ## What You Can Do
 
 - Create and manage video ad projects across aspect ratios (9:16, 16:9, 1:1, etc.)
+- Generate unified Quick Generation video tasks with Seedance 2.0 / Seedance 2.0 Fast / Kling 2.6
+- Generate unified Quick Generation image tasks with GPT Image 2 / Gemini models
 - Extract brand identity from a product URL or website
 - Send generation requests with text prompts and reference media (local files or URLs)
 - Monitor generation progress, pause/resume, and retrieve final assets

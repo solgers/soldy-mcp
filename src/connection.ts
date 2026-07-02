@@ -225,7 +225,10 @@ export class ConnectionManager {
     // Ensure we're subscribed
     await this.subscribeProject(projectId);
 
-    const emitter = this.projectEmitters.get(projectId)!;
+    const emitter = this.projectEmitters.get(projectId);
+    if (!emitter) {
+      throw new Error(`Failed to subscribe to project ${projectId}`);
+    }
 
     // Check existing buffer first
     const terminalCheck = this.findTerminalEvent(projectId);

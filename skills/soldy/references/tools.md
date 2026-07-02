@@ -253,9 +253,77 @@ Manage the org's showcase gallery. `add` and `remove` are debug-gated.
 | `remove_showcase` | `project_id` |
 | `list_showcase` | `page?`, `page_size?` |
 
+### video_list_models
+
+List the unified Quick Generation video model registry. Call before `video_generate` when you need valid model ids, modes, parameters, or asset slots. The registry is API-owned and includes Seedance 2.0, Seedance 2.0 Fast, and Kling 2.6 when enabled for the API key.
+
+No parameters.
+
+### video_generate
+
+Submit a provider-agnostic video generation task through `/public/project/video/generate`. Use this for direct renders that do not need the conversational agent.
+
+| Parameter | Type | Required | Notes |
+|---|---|---|---|
+| `model` | string | yes | Registry id from `video_list_models`, e.g. `seedance-2.0`, `seedance-2.0-fast`, `kling-2.6` |
+| `mode` | string | yes | Registry mode, e.g. `text_to_video`, `references`, `keyframes`, `image_to_video` |
+| `project_id` | string | no | Existing `vproj_*`; omit to create a new gallery unit |
+| `prompt` | string | no | Can also be provided inside `parameters.prompt` |
+| `duration` / `ratio` / `resolution` / `generate_audio` / `negative_prompt` | mixed | no | Convenience top-level fields; override duplicates in `parameters` |
+| `parameters` | object | no | Registry-specific scalar fields |
+| `input_assets` | object | no | Registry-specific media slots such as `image_url`, `video_url`, `audio_url`, `first_image_url`, `last_image_url` |
+
+Returns the new `vidtask_*`. Poll with `video_get_task`.
+
+### video_get_task / video_list_tasks / video_retry_task / video_delete_task / video_get_lineage
+
+Manage unified Quick Generation video tasks.
+
+| Tool | Args | Notes |
+|---|---|---|
+| `video_get_task` | `task_id` | Poll one `vidtask_*`; may refresh provider status |
+| `video_list_tasks` | `page?`, `page_size?`, `project_id?` | Lists latest execution per `vproj_*` gallery unit |
+| `video_retry_task` | `task_id` | Retries terminal tasks only |
+| `video_delete_task` | `task_id` | Soft-deletes terminal tasks only |
+| `video_get_lineage` | `task_id` | Returns all retry attempts for a lineage |
+
+### image_list_models
+
+List the unified Quick Generation image model registry. Call before `image_generate` when you need valid model ids, modes, parameters, or asset slots. The registry is API-owned and includes GPT Image 2 and Gemini image models when enabled for the API key.
+
+No parameters.
+
+### image_generate
+
+Submit a provider-agnostic image generation task through `/public/project/image/generate`. Use this for direct image generation/editing that does not need the conversational agent.
+
+| Parameter | Type | Required | Notes |
+|---|---|---|---|
+| `model` | string | yes | Registry id from `image_list_models`, e.g. `gpt-image-2`, `gemini-3-pro-image-preview` |
+| `mode` | string | yes | Registry mode, e.g. `text_to_image`, `image_to_image` |
+| `project_id` | string | no | Existing `improj_*`; omit to create a new gallery unit |
+| `prompt` | string | no | Can also be provided inside `parameters.prompt` |
+| `image_size` / `quality` / `ratio` / `output_format` / `num_images` | mixed | no | Convenience top-level fields; override duplicates in `parameters` |
+| `parameters` | object | no | Registry-specific scalar fields |
+| `input_assets` | object | no | Registry-specific media slots such as `image_urls` |
+
+Returns the new `imgtask_*`. Poll with `image_get_task`.
+
+### image_get_task / image_list_tasks / image_retry_task / image_delete_task / image_get_lineage
+
+Manage unified Quick Generation image tasks.
+
+| Tool | Args | Notes |
+|---|---|---|
+| `image_get_task` | `task_id` | Poll one `imgtask_*` |
+| `image_list_tasks` | `page?`, `page_size?`, `project_id?` | Lists latest execution per `improj_*` gallery unit |
+| `image_retry_task` | `task_id` | Retries terminal tasks only |
+| `image_delete_task` | `task_id` | Soft-deletes terminal tasks only |
+| `image_get_lineage` | `task_id` | Returns all retry attempts for a lineage |
+
 ### seedance_generate
 
-Submit a Seedance video task **directly** (bypasses the conversational agent). Returns a `task_id` and public read-only share link immediately; poll with `get_seedance_task`. Use when you want raw control: a prompt + media + duration/ratio with no creative-direction back-and-forth. For creative iteration, prefer `chat`.
+Submit a legacy Marketing Studio / Video Ads Seedance task **directly** (bypasses the conversational agent). Returns a `task_id` and public read-only share link immediately; poll with `get_seedance_task`. Use this compatibility path when the user specifically wants a template `module` such as UGC, Tutorial, or Unboxing. For provider-agnostic Seedance/Kling video, prefer `video_generate`; for creative iteration, prefer `chat`.
 
 | Parameter | Type | Required | Notes |
 |---|---|---|---|

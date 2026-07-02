@@ -7,6 +7,7 @@ import { registerMessageResources } from "./resources/messages.js";
 import { registerProjectResources } from "./resources/projects.js";
 import { registerBrandTools } from "./tools/brand.js";
 import { registerChatTools } from "./tools/chat.js";
+import { registerGenerationTools } from "./tools/generation.js";
 import { registerMaterialTools } from "./tools/material.js";
 import { registerMessageTools } from "./tools/message.js";
 import { registerProjectTools } from "./tools/project.js";
@@ -21,7 +22,7 @@ export function createServer(
   webUrl = DEFAULT_WEB_URL,
 ): { server: McpServer; connection: ConnectionManager } {
   const server = new McpServer(
-    { name: "Soldy AI", version: "0.3.1" },
+    { name: "Soldy AI", version: "0.4.0" },
     {
       capabilities: { tools: {}, prompts: {}, resources: {} },
       instructions: SERVER_INSTRUCTIONS,
@@ -36,6 +37,7 @@ export function createServer(
   registerProjectTools(server, client, webUrl);
   registerMessageTools(server, client);
   registerMaterialTools(server, apiUrl);
+  registerGenerationTools(server, client);
   registerChatTools(server, client, connection);
   registerUpdateTools(server, connection);
   registerWorkflowTools(server, client);
@@ -123,28 +125,32 @@ Advanced params (optional): \`workflow\` (brand_dna / product / character /
 visual_hooks / product_highlights / story_creative / campaign_planning),
 \`entry_template_id\`, \`intent_answers\`, \`should_remind\`, \`large_consume_agreed\`.
 
-### Path B — Video Ad templates (\`seedance_generate\` + \`module\`)
+### Path B — Unified quick generation (\`video_*\` / \`image_*\`)
 
-Use when the user already knows the template they want (UGC, Tutorial,
-Unboxing, Product Review, TV Spot, Hyper Motion, Wild Card, Virtual Try On)
-or just wants a single video rendered from a prompt + reference image. One
-deterministic call, no agent round-trip.
+Use when the user wants one direct render from a prompt + optional references,
+without creative back-and-forth. This is the modern provider-agnostic path:
+\`video_*\` exposes Seedance 2.0, Seedance 2.0 Fast, and Kling 2.6 through the
+API model registry; \`image_*\` exposes GPT Image 2 and Gemini image models.
 
 \`\`\`
-list_video_ad_templates() → catalog with descriptions
-seedance_generate({ prompt, image_url, module, ratio, ... }) → { task_id }
-get_seedance_task(task_id) → status + result
-get_seedance_share_link(task_id) → public read-only web URL
+video_list_models() → model registry + modes + parameters
+video_generate({ model, mode, prompt, parameters, input_assets }) → { id }
+video_get_task(task_id) → status + result
+image_list_models() → model registry + modes + parameters
+image_generate({ model, mode, prompt, parameters, input_assets }) → { id }
+image_get_task(task_id) → status + result
 \`\`\`
 
-If you're not sure which \`module\` value matches the user's intent, call
-\`list_video_ad_templates\` first. Every Seedance task also has a public
-read-only share page at \`/app/share/video-ads/{task_id}\`; surface that link
-when the user wants to preview or send the result outside the MCP client.
+If you're not sure which \`model\`, \`mode\`, or parameter values match the
+request, call \`video_list_models\` / \`image_list_models\` first and pass the
+registry-owned values through. For old Marketing Studio template requests
+(UGC, Tutorial, Unboxing, Product Review, TV Spot, Hyper Motion, Wild Card,
+Virtual Try On), \`seedance_generate\` remains available as a compatibility
+template wrapper and returns a public read-only share page.
 
-**Don't default to \`chat\` for template-mode requests.** Phrases like "make me
-a UGC ad", "I want an unboxing video", "render a product review" are Path B,
-not Path A.
+**Don't default to \`chat\` for direct-render requests.** Phrases like "render
+this image with Kling", "generate four product images", or "make a UGC ad" are
+Path B, not Path A.
 
 ## Tools
 
@@ -154,11 +160,13 @@ not Path A.
 | \`send_message\` | A | Fire-and-forget alternative to \`chat\` |
 | \`get_updates\` | A | New events since a cursor (after timeout or send_message) |
 | \`continue_project\` / \`pause_project\` / \`stop_project\` | A | Run lifecycle control |
-| \`list_video_ad_templates\` | B | Discover Marketing Studio template values |
-| \`seedance_generate\` | B | Submit a Video Ad / Marketing Studio task |
-| \`get_seedance_task\` | B | Poll a Seedance task by id |
-| \`get_seedance_share_link\` | B | Get the public read-only Video Ads share page |
-| \`list_seedance_history\` | B | Past Seedance tasks |
+| \`video_list_models\` / \`image_list_models\` | B | Discover unified generation model capabilities |
+| \`video_generate\` / \`image_generate\` | B | Submit direct video/image generation tasks |
+| \`video_get_task\` / \`image_get_task\` | B | Poll direct generation tasks |
+| \`video_list_tasks\` / \`image_list_tasks\` | B | Browse direct generation history |
+| \`video_retry_task\` / \`image_retry_task\` | B | Retry terminal direct generation tasks |
+| \`video_delete_task\` / \`image_delete_task\` | B | Delete terminal direct generation tasks |
+| \`list_video_ad_templates\` / \`seedance_generate\` | B compatibility | Legacy Marketing Studio template path |
 | \`extract_brand\` | shared | Brand extraction from URL |
 | \`get_project_status\` / \`list_messages\` / \`get_project_materials\` | shared | Project introspection |
 
@@ -182,10 +190,11 @@ not Path A.
 const WORKFLOW_PROMPT = `# Conversational creative direction with Soldy
 
 This prompt is for **Path A** — conversational, multi-shot, brand-aware
-iteration. If the user already picked a Marketing Studio template (UGC,
-Unboxing, Tutorial, …) or just wants one rendered video from a prompt +
-reference, switch to the \`video_ads_workflow\` prompt and use
-\`seedance_generate\` directly — it is a peer path, not a fallback.
+iteration. If the user just wants one direct render from a prompt + reference,
+use the unified \`video_*\` / \`image_*\` tools instead. If they already picked
+a Marketing Studio template (UGC, Unboxing, Tutorial, …), switch to the
+\`video_ads_workflow\` prompt and use \`seedance_generate\` directly — it is a
+peer path, not a fallback.
 
 Soldy (Path A) is a **conversational creative agent**, not a one-shot job
 runner. A Soldy *project* is a *conversation*. You and the user talk to Soldy
@@ -226,12 +235,12 @@ checklist. Read the signals:
 - **Concrete** ("15s 9:16 comedic ad for product X, here is brand_id and the
   photo") → one well-formed \`chat\` call.
 - **Template-driven** ("make me a UGC ad / unboxing / tutorial for this
-  product") → this is **Path B**. Switch to \`video_ads_workflow\` and call
-  \`seedance_generate\` with the matching \`module\`. Do not route through
-  \`chat\`.
-- **Reference-driven, no template** ("animate this image") → still Path A:
-  \`chat\` with the image passed via material_urls uses the agent's
-  image-to-video path.
+  product") → this is **Path B compatibility**. Switch to
+  \`video_ads_workflow\` and call \`seedance_generate\` with the matching
+  \`module\`. Do not route through \`chat\`.
+- **Direct render, no creative iteration** ("animate this image with Kling",
+  "generate four product shots") → use \`video_list_models\` /
+  \`image_list_models\`, then \`video_generate\` / \`image_generate\`.
 - **Mid-conversation refinement** → translate the user's feedback into an
   iteration message on the same project via \`chat\`. Don't restart.
 
@@ -258,10 +267,13 @@ checklist. Read the signals:
 
 const VIDEO_ADS_WORKFLOW_PROMPT = `# Video Ads / Marketing Studio (template path)
 
-This prompt is for **Path B** — template-driven, deterministic, one-shot video
-ad generation. If the user wants creative back-and-forth, brand-aware
-storyboarding, or multi-shot iteration, switch to the \`soldy_workflow\` prompt
-and use \`chat\` instead. Both paths are first-class peers.
+This prompt is for the **Marketing Studio template compatibility path** —
+template-driven, deterministic, one-shot video ad generation through
+\`seedance_generate\`. If the user wants a non-template direct render, use
+\`video_list_models\` / \`video_generate\` instead. If the user wants creative
+back-and-forth, brand-aware storyboarding, or multi-shot iteration, switch to
+the \`soldy_workflow\` prompt and use \`chat\` instead. These paths are
+first-class peers.
 
 ## When to take this path
 
@@ -275,7 +287,8 @@ The user has already picked the format and just wants it rendered:
 
 You do **not** need to create a project, extract a brand, or send a message
 through the conversational agent for these. One call to \`seedance_generate\`
-is enough.
+is enough. For Kling 2.6 or provider-agnostic Seedance/Gemini/GPT Image 2
+requests, use the unified \`video_*\` / \`image_*\` tools instead.
 
 ## Procedure
 

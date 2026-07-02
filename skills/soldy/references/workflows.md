@@ -102,6 +102,49 @@ Soldy can recompose a creative across aspect ratios *intelligently*, not by crop
 
 ---
 
+## Quick Generation — when *not* to use `chat`
+
+Use the unified Quick Generation tools when the user wants one direct render
+from a prompt and optional references, without creative back-and-forth.
+
+| Need | First call | Submit | Poll |
+|---|---|---|---|
+| Direct video render (Seedance or Kling) | `video_list_models` | `video_generate` | `video_get_task` |
+| Direct image render/edit (GPT Image 2 or Gemini) | `image_list_models` | `image_generate` | `image_get_task` |
+
+### Mini-workflow: Kling image-to-video
+
+```
+1. video_list_models() -> find model "kling-2.6" and mode "image_to_video"
+2. video_generate(
+     model: "kling-2.6",
+     mode: "image_to_video",
+     prompt: "cinematic 5s orbit shot, premium product lighting",
+     input_assets: { image_url: ["https://..."] },
+     parameters: { duration: 5, ratio: "9:16", generate_audio: true }
+   )
+3. video_get_task(task_id) until status is succeeded or failed
+4. use video_get_lineage / video_retry_task for retry review and recovery
+```
+
+### Mini-workflow: GPT Image 2 product shot
+
+```
+1. image_list_models() -> find model "gpt-image-2" and mode "text_to_image"
+2. image_generate(
+     model: "gpt-image-2",
+     mode: "text_to_image",
+     prompt: "studio product photo on a brushed steel surface",
+     parameters: { image_size: "portrait_9_16", quality: "high", num_images: 2 }
+   )
+3. image_get_task(task_id) until status is succeeded or failed
+```
+
+The legacy `seedance_generate` path is still useful for Marketing Studio
+template modules (UGC, Tutorial, Unboxing, Product Review, TV Spot, Hyper
+Motion, Wild Card, Virtual Try On). For everything provider-agnostic, prefer
+`video_generate`.
+
 ## Standalone workflows — when *not* to use `chat`
 
 Some jobs aren't a conversation, they're a deterministic recipe. Soldy exposes three standalone workflows for those cases. They live next to `chat`, not under it — each is a single MCP tool that does the whole job and returns the result. Use them when the user is asking for *one specific deliverable* and creative back-and-forth isn't the point.
@@ -155,4 +198,3 @@ For all three, also surface `*_list_history` and `*_get_history_detail` to the u
 
 - **Look Reference**: hand-picked tool when the user wants a *single visual reference* (clean scene + annotated palette board) for a film/ad. The user supplies a written scene description plus a 4-color palette (`primary`, `secondary`, `accent`, `shadow`). Defaults block until done; pass `wait: false` for a `task_id` you can poll with `get_tool_task`.
 - **Cast Design**: hand-picked tool when the user wants a *cast brief* (archetype + visual prompt + per-member hero image). The user describes the cast in free form; the LLM infers methodology details (archetype, hyperbole trait, entity type). Same `wait` semantics.
-
