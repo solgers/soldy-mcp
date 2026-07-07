@@ -641,12 +641,12 @@ Allowed:
 
   server.tool(
     "list_seedance_history",
-    "List the user's Seedance task history (paginated; optional status and module_type mkt_studio|recast_studio).",
+    "List the user's Seedance task history (paginated; optional status and module_type marketing_studio|recast_studio).",
     {
       page: z.number().int().optional(),
       page_size: z.number().int().optional(),
       status: z.enum(["pending", "running", "succeeded", "failed"]).optional(),
-      module_type: z.enum(["mkt_studio", "recast_studio"]).optional(),
+      module_type: z.enum(["marketing_studio", "recast_studio"]).optional(),
     },
     async ({ page, page_size, status, module_type }) => {
       const params: Record<string, string> = {};
