@@ -15,7 +15,7 @@ export function resolveWebUrl(apiUrl: string, explicitWebUrl?: string): string {
   }
 
   if (parsed.hostname === "api-staging.soldy.ai") {
-    return "https://vercel-staging.soldy.ai";
+    return "https://staging.soldy.ai";
   }
 
   return DEFAULT_WEB_URL;
