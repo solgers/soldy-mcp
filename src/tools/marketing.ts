@@ -280,7 +280,9 @@ Allowed:
       status: z.enum(["pending", "running", "succeeded", "failed"]).optional(),
     },
     async ({ page, page_size, status }) => {
-      const params: Record<string, string> = { module_type: "marketing_studio" };
+      const params: Record<string, string> = {
+        module_type: "marketing_studio",
+      };
       if (page) params.page = String(page);
       if (page_size) params.page_size = String(page_size);
       if (status) params.status = status;
