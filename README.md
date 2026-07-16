@@ -1,6 +1,6 @@
 # @soldy_ai/mcp
 
-A Model Context Protocol (MCP) server for [Soldy AI](https://soldy.ai) — generate video ads, extract brand identities, and manage creative projects from any MCP client.
+A Model Context Protocol (MCP) server for [Soldy AI](https://soldy.ai) — generate video ads and images directly from any MCP client.
 
 ## Installation
 
@@ -42,13 +42,20 @@ Get your API key at [app.soldy.ai/app/settings](https://app.soldy.ai/app/setting
 
 ## What You Can Do
 
-- Create and manage video ad projects across aspect ratios (9:16, 16:9, 1:1, etc.)
-- Generate unified Quick Generation video tasks with Seedance 2.0 / Seedance 2.0 Fast / Kling 2.6
-- Generate unified Quick Generation image tasks with GPT Image 2 / Gemini models
-- Extract brand identity from a product URL or website
-- Send generation requests with text prompts and reference media (local files or URLs)
-- Monitor generation progress, pause/resume, and retrieve final assets
-- Share generated Video Ads via public read-only links
+Two one-shot generation paths — no projects, no conversational agent.
+
+**Quick Create** (provider-agnostic direct render)
+
+- Generate video tasks with Seedance 2.0 / Seedance 2.0 Fast / Kling 2.6
+- Generate image tasks with GPT Image 2 / Gemini models
+- Submit prompts + reference media, then poll, list, retry, or delete tasks
+
+**Marketing Studio** (template-driven Video Ads)
+
+- Render UGC, Unboxing, Tutorial, Product Review, TV Spot, Hyper Motion,
+  Wild Card, and Virtual Try-On ads from a single call
+- Attach product/avatar reference images across aspect ratios (9:16, 16:9, 1:1, …)
+- Share generated Video Ads via public read-only links and browse render history
 
 ## License
 

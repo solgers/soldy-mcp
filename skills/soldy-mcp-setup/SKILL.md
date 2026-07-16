@@ -1,11 +1,11 @@
 ---
 name: soldy-mcp-setup
-description: "Install and configure the Soldy AI MCP server (@soldy_ai/mcp) for any AI agent client. Use when the user wants to install Soldy MCP, connect Soldy to Claude Desktop / Cursor / Claude Code / Codex / Gemini CLI, set up video ad generation via MCP, or encounters SOLDY_API_KEY errors. Also triggers on: 'install soldy', 'add soldy mcp', 'configure soldy', 'soldy api key', 'npx @soldy_ai/mcp'."
+description: "Install and configure the Soldy AI MCP server (@soldy_ai/mcp) for any AI agent client. Use when the user wants to install Soldy MCP, connect Soldy to Claude Desktop / Cursor / Claude Code / Codex / Gemini CLI, set up video/image generation via MCP, or encounters SOLDY_API_KEY errors. Also triggers on: 'install soldy', 'add soldy mcp', 'configure soldy', 'soldy api key', 'npx @soldy_ai/mcp'."
 ---
 
 # Soldy MCP Setup
 
-Install and configure the `@soldy_ai/mcp` server so your AI agent can generate video ads, extract brand identities, and manage creative projects through Soldy AI.
+Install and configure the `@soldy_ai/mcp` server so your AI agent can generate videos and images directly (Quick Create) and render template-driven Video Ads (Marketing Studio) through Soldy AI.
 
 ## Step 1: Check If Already Installed
 
@@ -98,7 +98,7 @@ Add to `~/.gemini/settings.json`:
 
 ## Step 4: Verify Connection
 
-After installation, call `list_brands` or `list_projects`. If either returns without error (even an empty list), the connection is working.
+After installation, call `list_video_ad_templates` (a cheap, read-only, no-argument tool) or `video_list_models`. If either returns without error, the connection is working.
 
 If you see errors:
 - `SOLDY_API_KEY is not set` — the env var was not passed correctly; re-check the config
@@ -109,10 +109,10 @@ If you see errors:
 ## Next Steps
 
 Once the MCP server is installed and verified, the **soldy** skill provides complete guidance on:
-- Creating video ads, social creatives, and brand identities
-- Full workflow patterns (brand extraction → project creation → generation → monitoring)
-- Prompt engineering for different production types
-- Iteration strategies and quality optimization
+- Quick Create — one-shot provider-agnostic video/image renders (Seedance, Kling, GPT Image 2, Gemini)
+- Marketing Studio — template-driven Video Ads (UGC, Unboxing, Tutorial, Product Review, TV Spot, and more)
+- Prompt engineering and reference handling for each path
+- Polling, retrying, and sharing generated results
 
 Install it with:
 

@@ -1,116 +1,18 @@
-# What Soldy Does Behind `send_message`
+# Soldy MCP — Workflows
 
-This document describes what happens *inside* Soldy when you have a conversation with it. **It is not a procedure for you to follow.** Your interaction with Soldy is the conversation; the production pipeline below is Soldy's internal job. Read this when you need to *explain* Soldy to the user, anticipate where it might pause for input, or understand why a particular kind of refinement is fast vs. slow.
+Concrete mini-workflows for the two one-shot creation paths. Both submit a task and poll for the result.
 
-## The pipeline, in one picture
-
-```
-User turn (send_message)
-  → Intent recognition (what kind of content?)
-  → Domain routing (which production track?)
-  → Creative direction (one locked strategic concept)
-  → Visual foundation (reference images, look reference)
-  → Script & storyboard (per-shot cinematography)
-  → Media generation (video / image / audio)
-  → Quality gate (6-dimension scoring)
-  → Delivery
-```
-
-Each phase has checkpoints where Soldy may pause and ask the user for an approval or a creative choice. When that happens, the project status flips to `pause` and your job is to surface the question, not to invent an answer.
-
-## Production tracks
-
-These are the trajectories Soldy can take. Which one runs depends on what the user wants — Soldy picks based on the conversation, not based on you specifying it.
-
-### Product video (PV)
-
-Best for: e-commerce launches, product hero videos, demonstrations. Product-centric, no characters by default, typically 15–30s.
-
-Internal phases: 4-role creative diagnosis → product four-view + look reference → shot table → storyboard → multi-route I2V/T2V via Kling v2.6 Pro → beat-driven music → merge.
-
-### Narrative / story video
-
-Best for: emotional, comedic, cultural, and conversion ads. Character-driven, dialogue or visual story.
-
-Soldy auto-classifies the narrative intent into one of four modes and adapts the tension architecture, escalation curve, and cast intensity accordingly:
-
-| Intent | Tension axis | Escalation | Cast intensity |
+| Path | First call | Submit | Poll |
 |---|---|---|---|
-| Emotional | Identity / belonging | Linear, double reversal | DEPTH (psychology-driven) |
-| Comedic | Status / imminent failure | Chaos escalation | MAXIMUM (10x hyperbole) |
-| Cultural | Belonging / identity | Compressed reveal | MAXIMUM (zeitgeist-responsive) |
-| Conversion | Time pressure / failure | Linear | SELECTIVE (relatable) |
-
-In narrative mode, Soldy will often propose A/B/C creative directions and pause for the user to pick one. That pause is where you bring proposals back to the user — don't auto-pick.
-
-### Social ad images
-
-Static creatives for Instagram, Facebook, TikTok. Pipeline: references → composition → copy → render → quality gate.
-
-### Product shots
-
-E-commerce product photography and lifestyle staging.
-
-## What "creative direction" produces
-
-When the full pipeline runs, the creative direction phase locks one strategic concept that downstream phases all key off. It includes:
-
-- **Video thesis** — what the video says through images
-- **Product role** — reveal object, ritual center, texture icon, tool, etc.
-- **Environment strategy** — where the product lives and why
-- **Rhythm shape** — the progression logic
-- **Killer shot** — one image that crystallizes the concept
-
-This is locked once per creative direction. When the user asks for tone or shot tweaks, those iterations happen *under* the locked direction. When the user wants something fundamentally different, the direction itself is rewritten — that's a heavier iteration.
-
-## Cast design (when characters are involved)
-
-Soldy uses a contrast principle: memorability comes from the gap between expectation and reality. Entity types include humans, animals, robots, mascots, and product-as-character. Intensity scales from MAXIMUM (comedic / cultural) through DEPTH (emotional) to SELECTIVE (conversion) and NONE (product only).
-
-## DP selection
-
-Soldy picks a cinematographic style matched to the locked direction — Doyle, Lubezki, Hoytema, Fraser, Toland, Storaro, Muller, Urusevsky, Yusov, etc. Each DP shapes lens, framing, lighting, and composition rules. You don't pick the DP; the user describes the feel they want and Soldy chooses.
-
-## Quality gate
-
-Every produced asset is scored across six dimensions (see the SKILL.md "What good looks like" section for the table and weights). Score 8.0+ ships, 6.5–7.9 polishes, below that revises. These are Soldy's internal heuristics — useful as a shared vocabulary for talking with the user about whether an output is good, but not a hard gate.
-
-## Iteration levels — fast vs. slow refinements
-
-When the user gives feedback, the level of iteration determines how much of the prior work is preserved. Lower numbers are faster.
-
-| Level | Scope | Example |
-|---|---|---|
-| 1 | Shot-level | "Redo shot 3 with warmer lighting" |
-| 2 | Sequence-level | "Rework the opening sequence" |
-| 3 | Element-level | "Change lighting across all shots" |
-| 4 | Script-level | "Rewrite the script and regenerate" |
-| 5 | Creative-level | "New creative direction entirely" |
-
-Default to the lowest level that captures the user's intent. You don't need to specify the level explicitly — describe the change in plain language and Soldy picks the smallest scope it can.
-
-## Format adaptation
-
-Soldy can recompose a creative across aspect ratios *intelligently*, not by cropping: 16:9 → 9:16 reframes and vertically restages; 16:9 → 1:1 centers the composition and extends the background. This is much cheaper than regenerating.
-
-## Models in use (for reference)
-
-- **Image** — Google Gemini 2.0 (photorealistic T2I and I2I edits)
-- **Video** — Kling v2.6 Pro (default), Seedance 2.0 (opt-in, multi-segment / edit / replace), LTX-2 (scene extension)
-- **Audio** — AI music composition, Chatterbox TTS/STS, Whisper STT
-- **Post** — Topaz upscaling, BRIA background removal, DreamActor v2 character animation, video merge / transitions
+| **Quick Create — video** | `video_list_models` | `video_generate` | `video_get_task` |
+| **Quick Create — image** | `image_list_models` | `image_generate` | `image_get_task` |
+| **Marketing Studio — Video Ad** | `list_video_ad_templates` | `seedance_generate` | `get_seedance_task` |
 
 ---
 
-## Quick Generation — when *not* to use `chat`
+## Path A: Quick Create (`video_*` / `image_*`)
 
-Use the unified Quick Generation tools when the user wants one direct render
-from a prompt and optional references, without creative back-and-forth.
-
-| Need | First call | Submit | Poll |
-|---|---|---|---|
-| Direct video render (Seedance or Kling) | `video_list_models` | `video_generate` | `video_get_task` |
-| Direct image render/edit (GPT Image 2 or Gemini) | `image_list_models` | `image_generate` | `image_get_task` |
+Use these when the user wants one direct render or edit from a prompt and optional references, provider-agnostic. Call the `*_list_models` tool first whenever the model, mode, or parameter values are unclear — the registry owns the valid combinations. Pass registry-owned values straight through.
 
 ### Mini-workflow: Kling image-to-video
 
@@ -127,6 +29,19 @@ from a prompt and optional references, without creative back-and-forth.
 4. use video_get_lineage / video_retry_task for retry review and recovery
 ```
 
+### Mini-workflow: Seedance text-to-video
+
+```
+1. video_list_models() -> find model "seedance-2.0" and mode "text_to_video"
+2. video_generate(
+     model: "seedance-2.0",
+     mode: "text_to_video",
+     prompt: "a sleek smartwatch rotating on a dark reflective surface",
+     parameters: { duration: 8, ratio: "9:16", resolution: "1080p" }
+   )
+3. video_get_task(task_id) until status is succeeded or failed
+```
+
 ### Mini-workflow: GPT Image 2 product shot
 
 ```
@@ -140,61 +55,76 @@ from a prompt and optional references, without creative back-and-forth.
 3. image_get_task(task_id) until status is succeeded or failed
 ```
 
-The legacy `seedance_generate` path is still useful for Marketing Studio
-template modules (UGC, Tutorial, Unboxing, Product Review, TV Spot, Hyper
-Motion, Wild Card, Virtual Try On). For everything provider-agnostic, prefer
-`video_generate`.
-
-## Standalone workflows — when *not* to use `chat`
-
-Some jobs aren't a conversation, they're a deterministic recipe. Soldy exposes three standalone workflows for those cases. They live next to `chat`, not under it — each is a single MCP tool that does the whole job and returns the result. Use them when the user is asking for *one specific deliverable* and creative back-and-forth isn't the point.
-
-| Workflow | Use it when… | Tool |
-|---|---|---|
-| **Recast** | The user already has a video and wants it restyled (Style Transfer or Object Replacement). | `recast_generate` |
-| **CineAd** | The user wants a movie-scene-flavored ad for a single product image, with a structured Hook/Body/CTA script. | `cinead_generate` |
-| **ImageKit** | The user wants a layout-pack of marketing images (Shopify / Amazon / Meta) from one product photo. | `imagekit_generate` |
-
-These tools share a shape: upload product/source media via `upload_material` first, pass the URLs to the workflow tool, and wait. They're synchronous from the agent's POV and they don't enter the conversational pipeline, so don't try to mix them with `chat` on the same project.
-
-### Mini-workflow: Recast a TikTok clip
+### Mini-workflow: Gemini image edit (image-to-image)
 
 ```
-1. upload the source clip → get url/name/size/mime/thumbnail
-2. recast_generate(
-     video_url, video_name, video_size, video_mime, video_duration,
-     video_thumbnail_url,
-     recast_dimension: "Style Transfer",
-     recast_description: "warm anime cel-shaded look, soft edges, 80s palette"
+1. image_list_models() -> find a Gemini model and mode "image_to_image"
+2. image_generate(
+     model: "gemini-3-pro-image-preview",
+     mode: "image_to_image",
+     prompt: "replace the background with a soft gradient studio backdrop",
+     input_assets: { image_urls: ["./product.jpg"] }
    )
-3. result returns the new video URL + the prompt that was used
+3. image_get_task(task_id) until status is succeeded or failed
 ```
 
-### Mini-workflow: CineAd
+Local file paths (`./product.jpg`) are uploaded before the request; HTTP and `gs://` URLs pass through. Browse history with `video_list_tasks` / `image_list_tasks`; retry terminal tasks with `video_retry_task` / `image_retry_task`; trace a lineage with `video_get_lineage` / `image_get_lineage`.
+
+---
+
+## Path B: Marketing Studio / Video Ads (`seedance_generate`)
+
+Use this when the user named or described a Video Ad template. One call renders a complete, polished ad from a template + product image + short prompt, and returns a public read-only share page.
+
+### Mini-workflow: UGC ad from a product image
 
 ```
-1. upload the product photo → get url
-2. cinead_generate(image_url, product_name: "Nordic Sleep Mask",
-                   key_selling_point: "complete blackout in 0.5s")
-3. result returns the matched movie scene, the ad script (Hook/Body/CTA),
-   and the rendered video
+1. list_video_ad_templates()  (only if you're unsure of the exact module value)
+2. seedance_generate(
+     prompt: "energetic creator raving about these earbuds while walking",
+     module: "UGC",
+     image_url: ["https://.../earbuds.jpg"],
+     ratio: "9:16",
+     duration: 10
+   )
+   -> returns { task_id, status } and a public share URL immediately
+3. get_seedance_task(task_id) until status is succeeded or failed
+4. get_seedance_share_link(task_id) to hand the user a read-only link
 ```
 
-### Mini-workflow: ImageKit
+### Mini-workflow: Unboxing video
 
 ```
-1. upload the product photo → get url
-2. imagekit_generate(image_url, product_name: "Aurora Headphones",
-                     kit_type: "shopify",
-                     key_selling_point: "noise-cancel without weight")
-3. result returns N image variants for the chosen layout pack (synchronous)
+1. seedance_generate(
+     prompt: "premium unboxing, hands revealing the product on a clean desk",
+     module: "Unboxing",
+     image_url: ["https://.../box.jpg"],
+     resolution: "1080p"
+   )
+2. get_seedance_task(task_id) until done
 ```
 
-For all three, also surface `*_list_history` and `*_get_history_detail` to the user when they want to revisit prior generations.
+### Picking the module
 
-## Standalone agent primitives — Look Reference & Cast Design
+If the user described a *style* but not an exact template name, call `list_video_ad_templates` to see the catalog with descriptions and pick the closest match — surface 2–3 options only when the match is genuinely ambiguous. The `module` enum is closed:
 
-`generate_look_reference` and `generate_cast_design` are individual agent calls exposed as MCP tools. They don't need a project — the agent runs the primitive once and writes the result to `tool_tasks`.
+| Module | Best for |
+|---|---|
+| `UGC` | Authentic user-style content |
+| `Tutorial` | Step-by-step tutorials |
+| `Unboxing` | High-quality unboxing |
+| `Hyper_Motion` | Hyper-motion energy highlight |
+| `Product_Review` | Authentic product review |
+| `TV_Spot` | Broadcast-quality amplification |
+| `Wild_Card` | Custom creative ideas |
+| `UGC_Virtual_Try_On` | Try-before-you-buy, UGC style |
+| `Pro_Virtual_Try_On` | Polished virtual try-on |
+| `Direct` | No template — runs from prompt + media directly |
 
-- **Look Reference**: hand-picked tool when the user wants a *single visual reference* (clean scene + annotated palette board) for a film/ad. The user supplies a written scene description plus a 4-color palette (`primary`, `secondary`, `accent`, `shadow`). Defaults block until done; pass `wait: false` for a `task_id` you can poll with `get_tool_task`.
-- **Cast Design**: hand-picked tool when the user wants a *cast brief* (archetype + visual prompt + per-member hero image). The user describes the cast in free form; the LLM infers methodology details (archetype, hyperbole trait, entity type). Same `wait` semantics.
+### Reference handling
+
+`image_url`, `video_url`, and `audio_url` accept plain URL strings *or* `{ url, id }` objects. Use the `{ url, id }` form when the `id` came from a Soldy material list — pass the `id` through so the backend can resolve the original asset; don't strip it. Local paths are auto-uploaded.
+
+### History
+
+Use `list_seedance_history` (optional `status` filter) when the user asks "what have I rendered?" — rows include the same share links as `get_seedance_share_link`.

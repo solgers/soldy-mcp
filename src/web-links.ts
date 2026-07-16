@@ -25,10 +25,6 @@ export function seedanceShareUrl(webUrl: string, taskId: string): string {
   return `${trimTrailingSlash(webUrl)}/app/share/video-ads/${encodeURIComponent(taskId)}`;
 }
 
-export function chatUrl(webUrl: string, projectId: string): string {
-  return `${trimTrailingSlash(webUrl)}/app/chat/${encodeURIComponent(projectId)}`;
-}
-
 function localWebUrl(apiUrl: URL): string {
   const apiPort = Number.parseInt(apiUrl.port || "8080", 10);
   const offset = Number.isFinite(apiPort) ? apiPort - 8080 : 0;
