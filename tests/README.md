@@ -4,6 +4,10 @@ Stdio integration test for the Soldy MCP server. Spawns the built server
 (`dist/index.js`) as a subprocess, connects a real MCP `Client`, and exercises
 every registered tool in a safe order.
 
+The server exposes two one-shot paths only — **Quick Create** (`video_*` /
+`image_*`) and **Marketing Studio** (`seedance_*`). There are no projects,
+brands, materials, or a conversational agent.
+
 ## Setup
 
 ```bash
@@ -21,35 +25,23 @@ SOLDY_API_KEY=<your-key> \
 
 The `test:smoke` script runs `tsc` (to emit `dist/`) and then `tsx tests/smoke.ts`.
 
-## Opt-in flags
-
-These are off by default because they cost credits or take minutes.
-
-| Env var                 | Adds                                                                    |
-| ----------------------- | ----------------------------------------------------------------------- |
-| `TEST_SEND_MESSAGE=1`   | `send_message` + `get_updates` (cheap generation request)               |
-| `TEST_CHAT=1`           | `chat` — blocks up to 5 min, spends credits                             |
-| `TEST_EXTRACT_BRAND=1`  | `extract_brand` with `wait=true` (~60 s, spends credits)                |
-| `TEST_UPLOAD_PATH=/abs` | `upload_material` test against the given local file                     |
-
 ## What always runs
 
 Read-only & cheap endpoints:
 
-- `list_tools`, `list_resources`
-- `list_brands`, `list_projects`
-- `create_project` → `get_project` → `get_project_status` → `list_messages` → `get_project_materials` → `stop_project`
-- `extract_brand` with `wait=false` → `get_brand_task_result` (single poll, no wait)
-- `readResource` on `soldy://brands`, `soldy://project/{id}/status|messages|materials`
-- `pause_project` / `continue_project` on the idle project (server is expected to reject — test only asserts the server responds sanely)
+- `list_tools`
+- Quick Create: `video_list_models`, `image_list_models` (registry drift check),
+  `video_list_tasks`, `image_list_tasks`
+- Marketing Studio: `list_seedance_history`, `list_video_ad_templates`
+  (template drift check)
 
-## Cleanup
+## What is skipped
 
-The test creates a throwaway project named `mcp-smoke-<timestamp>`. There is
-no public delete endpoint, so the project remains. The test prints the
-project ID on exit for manual cleanup (admin UI or backend tooling).
+The `_generate` tools spend credits and take minutes, so they are skipped by
+default. Run them manually with the argument shapes printed in the skip notes:
 
-Brand extraction tasks expire on their own.
+- `video_generate`, `image_generate`
+- `seedance_generate`
 
 ## Exit code
 

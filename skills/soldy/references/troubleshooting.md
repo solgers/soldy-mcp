@@ -22,58 +22,49 @@
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `INSUFFICIENT_CREDITS` | Account out of credits | Top up at [soldy.ai/subscribe](https://soldy.ai/subscribe), then `continue_project` |
-| `PROJECT_NOT_FOUND` | Invalid project_id | Use `list_projects` to find valid IDs |
-| `BRAND_NOT_FOUND` | Invalid brand_id | Use `list_brands` to find valid IDs |
-| `BRAND_TASK_NOT_FOUND` | Invalid task_id | Use the task_id returned by `extract_brand` |
+| `INSUFFICIENT_CREDITS` | Account out of credits | Top up at [soldy.ai/subscribe](https://soldy.ai/subscribe), then resubmit |
 | `WORKSPACE_NOT_FOUND` | No workspace in org | Log in to [soldy.ai](https://soldy.ai) and create a workspace |
-| `PROJECT_LIMIT_EXCEEDED` | Too many active projects | Archive or delete old projects |
 | `RATE_LIMIT_EXCEEDED` | Too many API requests | Wait and retry; reduce request frequency |
+| Invalid `model` / `mode` | Value not in the registry | Call `video_list_models` / `image_list_models` and pass a listed value |
+| Invalid `module` | Template value not recognized | Call `list_video_ad_templates`; the `module` enum is closed |
 
-## Project Status Issues
+## Task Status Issues
 
 | Status | Meaning | Resolution |
 |--------|---------|------------|
-| `pause` | Agent paused — credits or approval needed | Top up credits, then `continue_project(project_id)` |
-| `error` | Generation failed | Check error in `chat` response or `get_project_status`; retry with new `chat` call |
-| Stuck on `running` | Long generation or connectivity issue | Complex videos take several minutes (full pipeline). Use `get_updates` or `get_project_status` to check. |
+| `pending` / `running` | Task queued or generating | Wait — video ~1–3 min, image ~1–4 min. Poll `video_get_task` / `image_get_task` / `get_seedance_task`. |
+| `failed` | Generation failed | Read the error / failure reason in the task result. Retry a terminal Quick Create task with `video_retry_task` / `image_retry_task`, or resubmit with refined inputs. |
+| Retry/delete rejected | Task is still running | Only terminal tasks can be retried or deleted. Wait for the task to finish first. |
 
 ## Connection Issues
 
 | Problem | Fix |
 |---------|-----|
-| `chat` times out before completion | Increase `timeout_seconds` (default 300). Or use `send_message` + `get_updates` for async flow. |
-| WebSocket connection failed | MCP server auto-reconnects. If persistent, check network and API URL. |
-| `get_updates` returns no events | Events buffer within the MCP session. If MCP server restarted, use `get_project_status` + `list_messages` instead. |
+| Tools not appearing in the session | Restart the AI client after config changes; confirm the `soldy` server is registered (e.g. `claude mcp list`). |
+| Read-only check fails | Call `list_video_ad_templates` or `video_list_models` — a no-argument, read-only call. If it errors, re-check the API key and network/API URL. |
 
 ## File & Material Issues
 
 | Problem | Fix |
 |---------|-----|
-| Local file not uploading | Verify file path exists and is readable; use absolute path if relative fails |
-| URL material not recognized | Ensure URL is publicly accessible; GCS URLs need `gs://` prefix |
-| Large file timeout | Split into smaller files or host externally and pass HTTP URL |
-| Generated materials not appearing | Generation may still be running — check `chat` response status or `get_project_status` first |
+| Local file not uploading | Verify the file path exists and is readable; use an absolute path if a relative one fails |
+| URL material not recognized | Ensure the URL is publicly accessible; GCS URLs need the `gs://` prefix |
+| Large file timeout | Split into smaller files or host externally and pass an HTTP URL |
+| Material-library reference not resolving | Pass the `{ url, id }` object through unchanged in `seedance_generate` — don't strip the `id` |
+| Generated materials not appearing | Generation may still be running — poll the task's status first |
 
 ## Common Mistakes
 
 | Mistake | Correct Approach |
 |---------|-----------------|
-| Not passing `ratio` to `chat` | `ratio` is required — choose based on target platform |
-| Putting product URL in text only | Use `extract_brand(url)` explicitly to extract brand identity |
-| Using `send_message` when `chat` works | Prefer `chat` — it sends and waits in one call |
-| Not passing `brand_id` | Always include `brand_id` in `chat` when a brand exists |
-| Expecting instant results | Full production pipeline takes minutes — creative direction, storyboard, video generation, music |
-| Creating new project to iterate | Send another `chat` call to the same project instead |
+| Guessing `model` / `mode` values | Call `video_list_models` / `image_list_models` and pass a registry value |
+| Guessing a template `module` | Call `list_video_ad_templates`; the enum is closed |
+| Routing a format-named ad through Quick Create | "Make me a UGC ad" is Marketing Studio — use `seedance_generate` with the `module` |
+| Routing a raw render through Marketing Studio | "Render this with Kling" is Quick Create — use `video_generate` |
+| Expecting instant results | Generation takes minutes — submit, tell the user it's running, then poll |
+| Polling in a tight loop | Submit, inform the user, then check back |
 
 ## Agent-Specific Issues
-
-### Cursor
-
-| Problem | Fix |
-|---------|-----|
-| `chat` seems stuck | Cursor may have shorter tool timeout. Use `send_message` + `get_updates` as alternative. |
-| Config not loading | Verify `~/.cursor/mcp.json` has valid JSON syntax. Restart Cursor after changes. |
 
 ### Codex
 

@@ -1,165 +1,95 @@
 # Soldy — Judgment Heuristics
 
-The main SKILL.md gives you the mental model. This document is the deeper-cut version: a set of heuristics for the recurring judgment calls you'll make while having a conversation with Soldy on behalf of a user. None of this is a script. It's all "here's how to think about it."
+The main SKILL.md gives you the mental model. This document is the deeper-cut version: heuristics for the recurring judgment calls you'll make while driving Soldy's two one-shot paths on behalf of a user. None of this is a script — it's all "here's how to think about it."
 
-## Reading the user's readiness
+## Picking the path
 
-The single most important judgment call is: how prepared is the user, and how much should I push back vs. just execute? Some signals to read:
+The first judgment call is always: **Quick Create or Marketing Studio?**
 
-**Signals the user wants to be guided:**
-- Vague intent ("make me an ad", "something cool for my brand", "help me with marketing video").
-- No mention of platform, length, tone, or audience.
-- They're describing their business, not their creative.
-- They ask "what should I do?" instead of "do this."
-- They give you a product URL but no brand_id and no images.
+**Signals for Quick Create (`video_*` / `image_*`):**
+- "Animate this photo." / "Turn this image into a short loop." / "Make a 5-second video from this reference."
+- A named model or mode: "render this with Kling", "use GPT Image 2", "image-to-video".
+- A raw render or edit with no ad framing: "generate four product images", "edit this to a white background".
+- The user wants control over model, resolution, duration, or reference slots directly.
 
-When you see these, slow down. Treat the first message as a kickoff conversation, not a brief. Offer to extract their brand if they have a URL. Ask one or two of the questions a creative director would ask — what platform, what feeling, what's the ad supposed to *do* — and bring those back to the user before you call `chat`. Your goal at this stage is to help the user discover what they actually want, not to start cranking out video.
+**Signals for Marketing Studio (`seedance_generate`):**
+- A format-named ad: "UGC ad", "unboxing video", "product review", "tutorial", "TV spot", "virtual try on".
+- The user has a product image and just wants a finished, polished ad in one shot.
+- They described a marketing *style* without naming a model — let the template do the work.
 
-**Signals the user is ready to fast-path:**
-- Concrete length, ratio, tone, and platform stated up front.
-- A `brand_id` or a clear brand context.
-- Reference images attached or linked.
-- They've used Soldy before and know the vocabulary.
+When in doubt between a template and a raw render, ask which the user cares more about: a purpose-built ad format (Marketing Studio) or exact model/parameter control (Quick Create).
 
-When you see these, don't drag them through clarifying questions. Compose one well-formed `chat` call and surface intermediate decisions only when Soldy itself pauses for input.
+## Discovering valid values before you submit
 
-**Signals it's an image-to-video intent:**
-- "Animate this image."
-- "Turn this photo into a short loop."
-- "Make a 5-second video from this reference."
+Both paths have closed vocabularies. Don't guess.
 
-Pass the reference image to `chat` via `material_urls`; Soldy's image-to-video path handles it without dragging the user through full creative direction.
+- **Quick Create** — call `video_list_models` / `image_list_models` first whenever the `model`, `mode`, or parameter values are unclear. The registry is API-owned and changes per API key (Seedance, Kling, GPT Image 2, Gemini are enabled selectively). Pass the registry-owned values straight through; top-level convenience fields (`duration`, `ratio`, `resolution`, etc.) override duplicates inside `parameters`.
+- **Marketing Studio** — the `module` enum is closed. If the user described a style but didn't name a template, call `list_video_ad_templates` and pick the closest match. Surface 2–3 options only when the match is genuinely ambiguous.
 
-## Phrasing a message so Soldy treats it as a turn
+## Phrasing a prompt
 
-A good message reads like something you'd say to a creative director, not like a JIRA ticket. State *what matters and why*, leave the *how* to Soldy.
+State *what matters and why*; leave the *how* to the model. A good prompt reads like creative intent, not a JIRA ticket.
 
-A useful structure when you're starting a project from a brief:
+**Good (Quick Create video):**
 
 ```
-What:     [product / brand] + [content type]
-Platform: [target + ratio]
-Tone:     [one or two words]
-Anchor:   [the ONE thing that must be right]
+cinematic 5s orbit shot of the earbuds, premium product lighting, shallow depth of field
 ```
 
-**Good:**
+**Good (Marketing Studio UGC):**
 
 ```
-Create a 15-second product video for the Aero wireless earbuds.
-Hero the noise-cancellation feature.
-Target: TikTok (9:16). Tone: sleek, premium.
+energetic creator raving about these earbuds while walking through a city at golden hour
 ```
 
 **Over-prescriptive (avoid):**
 
 ```
-Create a video. Shot 1: close-up of earbuds on white background, 3 seconds,
-fade in from black. Shot 2: person putting earbuds in, medium shot, 4 seconds.
-Shot 3: noise cancellation icon with text overlay...
+Shot 1: close-up on white background, 3s, fade in from black. Shot 2: person inserts
+earbud, medium shot, 4s. Shot 3: noise-cancel icon with text overlay...
 ```
 
-The second one isn't using Soldy — it's bypassing the production pipeline that makes Soldy worth calling in the first place. If you find yourself writing shot lists in the prompt, stop and ask: *am I directing, or am I delegating?* If the user genuinely wants that level of micro-control, that's fine — but it should be a deliberate choice, not the default.
+Micro-directing a single-shot render throws away what the model is good at. If the user genuinely wants that level of control, that's a deliberate choice — not the default. For structural control, prefer the right `mode` (keyframes, references, image-to-video) and reference assets over a wall of shot instructions.
 
-When you're iterating, the body looks different. Plain language is best:
+## Reference handling
 
-```
-Redo shot 3 with warmer lighting.
-Make the music more upbeat.
-Adapt this to 9:16 for TikTok.
-```
+- **Batch references.** Pass all reference images/videos/audio in one generation request, not across several. In Quick Create they go in `input_assets` under registry-specific slots (`image_url`, `video_url`, `audio_url`, `first_image_url`, `last_image_url`, `image_urls`); in Marketing Studio they go in `image_url` / `video_url` / `audio_url`.
+- **Local paths auto-upload.** `./product.jpg` is uploaded before submission; HTTP and `gs://` URLs pass through untouched.
+- **Preserve material-library `id`s.** In `seedance_generate`, reference arrays accept `{ url, id }` objects. When the `id` came from a Soldy material list, pass it through — don't collapse it to a bare URL string, or the backend can't resolve the original asset.
+- **Match the mode to the reference.** An image-to-video request needs a mode that consumes an image slot; a text-to-video request doesn't. `video_list_models` tells you which modes exist and what slots they read.
 
-You don't need to specify the iteration level. Describe the change in natural language and Soldy will pick the smallest scope that captures it.
+## Reading task state
 
-## Reading project state
-
-The `chat` response tells you what happened directly through its `status` field. If using `send_message` + `get_updates`, or `get_project_status`, map status to action:
+Both paths are submit-then-poll. Map status to action:
 
 | Status | What it means | What to do |
 |---|---|---|
-| `running` | Soldy is working. | Keep watching. Tell the user it's still going. |
-| `pause` | Soldy is waiting on the *user* (credits, an A/B/C creative pick, an approval gate). | Read the reason, surface it to the user in plain language, and only call `continue_project` after they answer. |
-| `error` | Something went wrong. | Read the error. Most errors are recoverable with a refined `chat` call. |
-| `completed` | Assets are ready. | `get_project_materials` and show the user. |
+| `pending` / `running` | The task is queued or generating. | Keep watching. Tell the user it's still going (video ~1–3 min, image ~1–4 min). |
+| `succeeded` | The result is ready. | Surface the result JSON and, for Video Ads, the share URL. |
+| `failed` | Generation failed. | Read the error / failure reason. Retry the terminal task, or resubmit with a refined prompt/parameters. |
 
-The `pause` case is the most commonly mishandled. It is **not** a "press any key to continue" prompt. It's a real decision point that the user — not you — should make.
+Don't poll in a tight loop — submit, tell the user it's running, then check back.
 
-## Iteration vs. restart
+## Retry vs. resubmit
 
-Default to iteration. The project carries the brand, the look reference, the character designs, the storyboards, and all the prior shots. Throwing that away is expensive in both credits and quality.
+- **Retry (same lineage)** — for Quick Create, `video_retry_task` / `image_retry_task` re-runs a *terminal* task with the same inputs and keeps it in the same lineage/gallery. Use it for transient failures or to get another sample of the same request. Trace attempts with `video_get_lineage` / `image_get_lineage`.
+- **Resubmit (new task)** — when the prompt, model, mode, references, or parameters need to change, submit a fresh `video_generate` / `image_generate` / `seedance_generate` call. Seedance has no retry tool; a bad Video Ad is a fresh `seedance_generate`.
 
-**Iterate (same project) when:**
-- Adjusting individual shots
-- Changing music or audio
-- Tweaking lighting, color, pacing
-- Adapting to a different ratio
-- Refining the script
-
-**Restart (new project) only when:**
-- The creative direction is fundamentally wrong
-- It's a different product
-- You're switching production type (e.g. PV -> narrative)
-
-A useful test: if the user says "no, I meant...", iterate. If the user says "actually, forget that, what if we did...", consider whether restart is genuinely needed or whether it's still a creative-level (Level 5) iteration on the same project.
-
-## Knowing when to converge vs. branch
-
-After a few rounds of iteration, you'll notice one of two patterns:
-
-**Converging** — each round addresses a smaller, more specific issue. Music, then a shot, then the ending beat. Keep going. This is the productive case.
-
-**Diverging** — each round contradicts the previous one. The user asks for warmer lighting, then cooler, then warmer again. This usually means the creative direction itself isn't working and the user is searching for something the current direction can't deliver. When you spot this, surface it to the user explicitly: "we've been going back and forth on lighting — do you want to try a different creative direction?" That's a Level 5 iteration.
-
-## Surfacing Soldy's questions to the user
-
-When Soldy proposes A/B/C creative directions and pauses, your job is to translate Soldy's proposals into language the user can actually decide on. Don't just paste the raw output. Pull out the *concept* of each option in one sentence:
-
-> Soldy proposed three directions:
-> - **A**: Premium and minimal — single hero shot, slow reveal.
-> - **B**: Energetic and social — fast cuts, faces, movement.
-> - **C**: Story-led — a 10-second mini-narrative around the product.
-> Which feels closest to what you want?
-
-Then, once they pick, send a `chat` message saying which one to lock and resume. Don't auto-pick to "save the user a step" — the picks are why they're using Soldy.
+Only terminal tasks can be retried or deleted — the API rejects retry/delete on a running task.
 
 ## Performance heuristics
 
-- **Extract brand once, reuse forever.** A `brand_id` is permanent across projects. Don't re-extract.
-- **Batch materials.** Pass all reference images/videos in one `material_urls` array, not in a series of messages.
-- **Let generation finish.** Don't interrupt mid-generation to refine — the work in flight is wasted.
-- **Pause if the user wants time to review.** `pause_project` is fine when *you* (or the user) want to stop, distinct from Soldy's own pause-for-input. Resume with `continue_project`.
-- **Use `chat` over `send_message`.** `chat` handles the waiting automatically. Use `send_message` + `get_updates` only when you need async control.
+- **Discover once, reuse the values.** Call `video_list_models` / `image_list_models` when you're unsure, then reuse the model/mode/params across similar requests in the session.
+- **Batch materials.** One request with all references beats several requests with one each.
+- **Let generation finish.** Don't resubmit while a task is still running — the in-flight work is wasted.
+- **Hand over the share link.** For Video Ads, `get_seedance_task` and `seedance_generate` already surface a read-only share URL; `get_seedance_share_link` regenerates it for any task from `list_seedance_history`.
 
 ## Common anti-patterns
 
-- **Pasting the user's first sentence into `chat`.** Almost always wrong for vague intents. Ask first.
-- **Creating a new project to make a change.** Loses everything. Iterate in place.
-- **Auto-resolving `pause` status.** Soldy is waiting on the user. Don't decide for them.
-- **Putting product URLs in message text and hoping.** They are not auto-extracted. Use `extract_brand` explicitly.
-- **Forgetting `brand_id`.** When a brand exists, always pass it — otherwise the output won't match the brand.
-- **Using `send_message` when `chat` would work.** `chat` is simpler — it sends and waits in one call.
-- **Writing shot-by-shot prompts.** You're directing instead of delegating. Describe outcomes; let Soldy handle cinematography.
-- **Auto-picking when Soldy asks for a user choice.** When `chat` returns with a `❓` choice card embedded in the response (paused awaiting user choice), surface the options *as written* to the user and let them pick. Don't quietly substitute your own judgment for theirs — the choice is the product.
-
-## When to reach past `chat` — standalone workflows & primitives
-
-`chat` is the right tool for *making creative decisions together*. When the user is asking for one specific deliverable from a deterministic recipe, the standalone tools are a faster, cheaper path:
-
-| What the user wants | Reach for |
-|---|---|
-| "Restyle this video clip" | `recast_generate` |
-| "Make a movie-flavored ad from this product photo" | `cinead_generate` |
-| "Generate the Shopify/Amazon/Meta image set for this product" | `imagekit_generate` |
-| "Animate this single image" | `chat` with the image in `material_urls` |
-| "Just submit a Seedance task with this prompt" | `seedance_generate` (raw, bypasses agent) |
-| "Give me a single look-reference image with this palette" | `generate_look_reference` |
-| "Build me a cast brief from this character description" | `generate_cast_design` |
-
-Rule of thumb: if the user's ask reduces to "run this exact pipeline", the standalone tool wins on speed and clarity. If it's "let's figure out the right ad together", stay in `chat`.
-
-## Reading the chat response — new tool outputs
-
-The `chat` response renders two structured tool outputs that the agent now emits regularly:
-
-- **`❓` choice card** — the agent's `user_choice_prompt` tool fired. The card lists labeled options (and may mark one ⭐ recommended). Status is typically `paused`. Surface the options to the user *as written* and call `continue_project` once they answer in the next user turn.
-- **`✗ rejected: …  suggested fix: …`** — the image-generation tool emitted a structured rejection (e.g. wrong product shape, catalog aesthetic). The "suggested fix" is the agent's own remediation hint. Pass it on so the user can see *why* a render was rejected and *what to change*. You usually don't need to re-prompt manually — Soldy iterates on its own based on the fix; only intervene if the user has additional context the agent can't see.
+- **Guessing `model` / `mode` / `parameters`.** Discover them with `video_list_models` / `image_list_models`. Invented values fail.
+- **Guessing a template `module`.** The enum is closed; call `list_video_ad_templates` if unsure.
+- **Routing a format-named ad through Quick Create.** "Make me a UGC ad" is Marketing Studio — the template does more than a raw render.
+- **Routing a raw render or specific-model request through Marketing Studio.** "Render this with Kling" is Quick Create.
+- **Stripping `id`s off material-library refs.** Pass `{ url, id }` through in `seedance_generate`.
+- **Writing shot-by-shot prompts for a single render.** Describe outcomes; pick the right mode and references for structure.
+- **Tight polling loops.** Submit, inform the user, then check.

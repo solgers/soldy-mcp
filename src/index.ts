@@ -14,7 +14,7 @@ if (!apiKey) {
 const apiUrl = process.env.SOLDY_API_URL ?? "https://api.soldy.ai";
 const webUrl = resolveWebUrl(apiUrl, process.env.SOLDY_WEB_URL);
 
-const { server, connection } = createServer(apiUrl, apiKey, webUrl);
+const { server } = createServer(apiUrl, apiKey, webUrl);
 const transport = new StdioServerTransport();
 
 await server.connect(transport);
@@ -25,7 +25,6 @@ console.error(`Soldy MCP server running (API: ${apiUrl}, Web: ${webUrl})`);
 // Graceful shutdown
 const shutdown = () => {
   console.error("[Soldy MCP] Shutting down...");
-  connection.disconnect();
   process.exit(0);
 };
 
