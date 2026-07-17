@@ -4,7 +4,7 @@
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `SOLDY_API_KEY is not set` | Env var missing from MCP config | Add `SOLDY_API_KEY` to the `env` block in client config. See `soldy-mcp-setup` skill. |
+| Browser login didn't open / timed out | Headless machine or blocked opener | Open the login URL printed on the server's stderr manually, or set `SOLDY_API_KEY` in the config env block. See `soldy-mcp-setup` skill. |
 | `npx: command not found` | Node.js not installed | Install Node.js v18+ (includes npx) |
 | MCP server not in tool list | Client not restarted after config | Restart the AI client; verify JSON syntax in config file |
 | `EACCES` permission error | npm global install permissions | Run `npm config set prefix ~/.npm-global` and add to PATH |
@@ -13,9 +13,9 @@
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| HTTP 401 / `INVALID_API_KEY` | API key expired or wrong | Regenerate at [soldy.ai/app/settings](https://soldy.ai/app/settings) |
+| HTTP 401 / `INVALID_API_KEY` | Cached or configured key revoked/wrong | Restart the MCP client to re-login via browser (cached keys are dropped automatically), or regenerate at [soldy.ai/app/settings](https://soldy.ai/app/settings) |
 | HTTP 403 | Key lacks workspace permissions | Check workspace access in Soldy dashboard |
-| `API_KEY_REQUIRED` | Key not passed to server | Verify `SOLDY_API_KEY` in config env block |
+| `API_KEY_REQUIRED` | Key not passed to server | Complete the browser login, or verify `SOLDY_API_KEY` in config env block |
 | `TOKEN_REQUIRED` | Auth token missing | Re-check API key configuration |
 
 ## Runtime Errors
@@ -70,7 +70,7 @@
 
 | Problem | Fix |
 |---------|-----|
-| `SOLDY_API_KEY is not set` | Codex requires the env var exported in the shell session before running. Use `export SOLDY_API_KEY=<key>` before starting the MCP server. |
+| Login fails in sandboxed session | Codex sandboxes may block the browser opener or the localhost callback. Open the login URL from stderr manually, or fall back to `env = { SOLDY_API_KEY = "<key>" }` in `~/.codex/config.toml`. |
 
 ### Gemini CLI
 

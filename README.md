@@ -23,10 +23,7 @@ Add to your MCP configuration (`claude_desktop_config.json` or `.cursor/mcp.json
   "mcpServers": {
     "soldy": {
       "command": "npx",
-      "args": ["-y", "@soldy_ai/mcp"],
-      "env": {
-        "SOLDY_API_KEY": "<your-api-key>"
-      }
+      "args": ["-y", "@soldy_ai/mcp"]
     }
   }
 }
@@ -35,10 +32,19 @@ Add to your MCP configuration (`claude_desktop_config.json` or `.cursor/mcp.json
 ### Claude Code
 
 ```bash
-claude mcp add soldy -e SOLDY_API_KEY=<your-api-key> -- npx -y @soldy_ai/mcp
+claude mcp add soldy -- npx -y @soldy_ai/mcp
 ```
 
-Get your API key at [app.soldy.ai/app/settings](https://app.soldy.ai/app/settings).
+## Authentication
+
+No configuration needed: on first use the server opens your browser to log in
+to Soldy. Once you're signed in, an API key is created automatically and cached
+at `~/.soldy/credentials.json` — later sessions reuse it without opening the
+browser again.
+
+To skip the browser flow (CI, headless machines), set the `SOLDY_API_KEY`
+environment variable instead; it always takes precedence. Get an API key at
+[app.soldy.ai/app/settings](https://app.soldy.ai/app/settings).
 
 ## What You Can Do
 
@@ -46,8 +52,8 @@ Two one-shot generation paths — no projects, no conversational agent.
 
 **Quick Create** (provider-agnostic direct render)
 
-- Generate video tasks with Seedance 2.0 / Seedance 2.0 Fast / Kling 2.6
-- Generate image tasks with GPT Image 2 / Gemini models
+- Generate video tasks with Seedance 2.0 / Seedance 2.0 Fast / Seedance 2.0 Mini / Kling 2.6
+- Generate image tasks with GPT Image 2 / Nano Banana Pro / Nano Banana 2 (Gemini)
 - Submit prompts + reference media, then poll, list, retry, or delete tasks
 
 **Marketing Studio** (template-driven Video Ads)

@@ -78,7 +78,13 @@ export class SoldyAPIClient {
 
   constructor(
     private baseUrl: string,
-    private apiKey: string,
+    /**
+     * Async so the key can come from a pending browser login instead of a
+     * pre-configured env var; resolved fresh on every request.
+     */
+    private getApiKey: () => Promise<string>,
+    /** Called on HTTP 401 so stale stored credentials can be invalidated. */
+    private onUnauthorized?: () => Promise<void>,
   ) {}
 
   /**
@@ -98,11 +104,18 @@ export class SoldyAPIClient {
     return this.cachedWorkspaceId;
   }
 
-  private headers(): Record<string, string> {
+  private async headers(): Promise<Record<string, string>> {
     return {
-      "X-API-Key": this.apiKey,
+      "X-API-Key": await this.getApiKey(),
       "Content-Type": "application/json",
     };
+  }
+
+  private async handleUnauthorized(): Promise<never> {
+    await this.onUnauthorized?.();
+    throw new Error(
+      "Soldy API rejected the credentials (HTTP 401). Restart your MCP client to log in through the browser again, or set SOLDY_API_KEY.",
+    );
   }
 
   private async request<T>(
@@ -118,10 +131,13 @@ export class SoldyAPIClient {
 
     const res = await fetch(url, {
       method,
-      headers: this.headers(),
+      headers: await this.headers(),
       body: opts?.body ? JSON.stringify(opts.body) : undefined,
     });
 
+    if (res.status === 401) {
+      await this.handleUnauthorized();
+    }
     if (!res.ok) {
       throw new Error(`API ${method} ${path}: HTTP ${res.status}`);
     }
@@ -266,10 +282,13 @@ export class SoldyAPIClient {
 
     const res = await fetch(`${this.baseUrl}/api/v1${path}`, {
       method: "POST",
-      headers: { "X-API-Key": this.apiKey },
+      headers: { "X-API-Key": await this.getApiKey() },
       body: form,
     });
 
+    if (res.status === 401) {
+      await this.handleUnauthorized();
+    }
     if (!res.ok) {
       throw new Error(`Upload ${path}: HTTP ${res.status}`);
     }

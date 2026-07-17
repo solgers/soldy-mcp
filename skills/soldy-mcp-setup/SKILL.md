@@ -1,6 +1,6 @@
 ---
 name: soldy-mcp-setup
-description: "Install and configure the Soldy AI MCP server (@soldy_ai/mcp) for any AI agent client. Use when the user wants to install Soldy MCP, connect Soldy to Claude Desktop / Cursor / Claude Code / Codex / Gemini CLI, set up video/image generation via MCP, or encounters SOLDY_API_KEY errors. Also triggers on: 'install soldy', 'add soldy mcp', 'configure soldy', 'soldy api key', 'npx @soldy_ai/mcp'."
+description: "Install and configure the Soldy AI MCP server (@soldy_ai/mcp) for any AI agent client. Use when the user wants to install Soldy MCP, connect Soldy to Claude Desktop / Cursor / Claude Code / Codex / Gemini CLI, set up video/image generation via MCP, or encounters Soldy login / SOLDY_API_KEY errors. Also triggers on: 'install soldy', 'add soldy mcp', 'configure soldy', 'soldy api key', 'npx @soldy_ai/mcp'."
 ---
 
 # Soldy MCP Setup
@@ -11,20 +11,16 @@ Install and configure the `@soldy_ai/mcp` server so your AI agent can generate v
 
 Before installing, check whether the Soldy MCP server is already configured in your current environment. Look for a `soldy` entry in your MCP server configuration — for example, `claude mcp list` in Claude Code, or the `mcpServers` section in your client's config file.
 
-If already installed, skip to **Step 4: Verify Connection**.
+If already installed, skip to **Step 3: Verify Connection**.
 
-## Step 2: Get API Key
+## Step 2: Install by Client
 
-1. Go to [soldy.ai/app/settings](https://soldy.ai/app/settings)
-2. Sign in or create an account
-3. Copy your API key from the settings page
-
-## Step 3: Install by Client
+No API key is needed: the first time the server is used it opens your browser to log in to Soldy, mints an API key automatically, and caches it at `~/.soldy/credentials.json` for future sessions.
 
 ### Claude Code
 
 ```bash
-claude mcp add soldy -e SOLDY_API_KEY=<your-api-key> -- npx -y @soldy_ai/mcp
+claude mcp add soldy -- npx -y @soldy_ai/mcp
 ```
 
 ### Claude Desktop
@@ -36,10 +32,7 @@ Add to your config file (see paths above):
   "mcpServers": {
     "soldy": {
       "command": "npx",
-      "args": ["-y", "@soldy_ai/mcp"],
-      "env": {
-        "SOLDY_API_KEY": "<your-api-key>"
-      }
+      "args": ["-y", "@soldy_ai/mcp"]
     }
   }
 }
@@ -56,10 +49,7 @@ Add to `~/.cursor/mcp.json`:
   "mcpServers": {
     "soldy": {
       "command": "npx",
-      "args": ["-y", "@soldy_ai/mcp"],
-      "env": {
-        "SOLDY_API_KEY": "<your-api-key>"
-      }
+      "args": ["-y", "@soldy_ai/mcp"]
     }
   }
 }
@@ -71,13 +61,6 @@ Add to `~/.cursor/mcp.json`:
 codex mcp add soldy -- npx -y @soldy_ai/mcp
 ```
 
-Then add the API key to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.soldy]
-env = { SOLDY_API_KEY = "<your-api-key>" }
-```
-
 ### Gemini CLI
 
 Add to `~/.gemini/settings.json`:
@@ -87,22 +70,26 @@ Add to `~/.gemini/settings.json`:
   "mcpServers": {
     "soldy": {
       "command": "npx",
-      "args": ["-y", "@soldy_ai/mcp"],
-      "env": {
-        "SOLDY_API_KEY": "<your-api-key>"
-      }
+      "args": ["-y", "@soldy_ai/mcp"]
     }
   }
 }
 ```
 
-## Step 4: Verify Connection
+### Headless / CI (no browser)
 
-After installation, call `list_video_ad_templates` (a cheap, read-only, no-argument tool) or `video_list_models`. If either returns without error, the connection is working.
+On machines where a browser login is impossible, set an explicit API key instead — it always takes precedence over the browser flow:
+
+1. Go to [soldy.ai/app/settings](https://soldy.ai/app/settings), sign in, and create an API key.
+2. Add `"env": { "SOLDY_API_KEY": "<your-api-key>" }` to the `soldy` server entry (or `env = { SOLDY_API_KEY = "<your-api-key>" }` in Codex's `~/.codex/config.toml`).
+
+## Step 3: Verify Connection
+
+After installation, call `list_video_ad_templates` (a cheap, read-only, no-argument tool) or `video_list_models`. The first call triggers the browser login if you have never logged in on this machine — complete it, then retry the tool. If it returns without error, the connection is working.
 
 If you see errors:
-- `SOLDY_API_KEY is not set` — the env var was not passed correctly; re-check the config
-- `Invalid API key` / HTTP 401 — regenerate the key at [soldy.ai/app/settings](https://soldy.ai/app/settings)
+- Browser login timed out / no browser opened — open the login URL printed on the server's stderr manually, or set `SOLDY_API_KEY` (see Headless above)
+- `Invalid API key` / HTTP 401 — the cached key was revoked; restart the MCP client to log in again, or delete `~/.soldy/credentials.json`
 - `npx: command not found` — install Node.js v18+ (includes npx)
 - MCP server not appearing — restart the AI client after config changes
 

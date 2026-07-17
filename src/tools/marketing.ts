@@ -112,8 +112,8 @@ Call this whenever the user asks for a template-style ad ("UGC", "unboxing video
 Returns a \`task_id\` immediately; poll with \`get_seedance_task\`. Use this whenever the user has chosen a template or just wants a single video rendered from a prompt + reference.
 
 Allowed:
-- model: "doubao-seedance-2-0-260128" (default) | "doubao-seedance-2-0-fast-260128"
-- resolution: "480p" | "720p" | "1080p"
+- model: "doubao-seedance-2-0-260128" (default) | "doubao-seedance-2-0-fast-260128" | "doubao-seedance-2-0-mini-260615" (Mini; 480p/720p only)
+- resolution: "480p" | "720p" | "1080p" | "4k" | "1080P" (4k / 1080P are upscale tiers; 1080P requires Seedance 2.0)
 - ratio / input_ratio: "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "21:9" | "adaptive" (default 9:16)
 - duration: -1 (auto) or 4-15 seconds (default 10)
 - module: "Direct" (default; no template) | "UGC" | "Tutorial" | "Unboxing" | "Hyper_Motion" | "Product_Review" | "TV_Spot" | "Wild_Card" | "UGC_Virtual_Try_On" | "Pro_Virtual_Try_On"`,
@@ -153,13 +153,21 @@ Allowed:
           "Input reference aspect ratio. When set, the backend uses this in place of `ratio` for downstream tooling. Same allowed values as `ratio`.",
         ),
       model: z
-        .enum(["doubao-seedance-2-0-260128", "doubao-seedance-2-0-fast-260128"])
+        .enum([
+          "doubao-seedance-2-0-260128",
+          "doubao-seedance-2-0-fast-260128",
+          "doubao-seedance-2-0-mini-260615",
+        ])
         .optional()
-        .describe("Default doubao-seedance-2-0-260128."),
+        .describe(
+          "Default doubao-seedance-2-0-260128. The -mini SKU supports 480p/720p only.",
+        ),
       resolution: z
-        .enum(["480p", "720p", "1080p"])
+        .enum(["480p", "720p", "1080p", "4k", "1080P"])
         .optional()
-        .describe("Output resolution. Default 720p."),
+        .describe(
+          "Output resolution. Default 720p. 4k and 1080P are upscale tiers (Marketing Studio only; 1080P requires Seedance 2.0).",
+        ),
       module: z
         .enum([
           "UGC",

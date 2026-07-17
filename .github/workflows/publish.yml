@@ -52,7 +52,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        # No lockfile is committed to the split soldy-mcp repo (this package is
+        # a bun workspace member in the monorepo and shares the root bun.lock),
+        # so a plain install is used here instead of --frozen-lockfile.
+        run: bun install
 
       - name: Biome check
         run: bunx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true .

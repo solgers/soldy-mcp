@@ -6,8 +6,9 @@ import { DEFAULT_WEB_URL } from "./web-links.js";
 
 export function createServer(
   apiUrl: string,
-  apiKey: string,
+  getApiKey: () => Promise<string>,
   webUrl = DEFAULT_WEB_URL,
+  onUnauthorized?: () => Promise<void>,
 ): { server: McpServer } {
   const server = new McpServer(
     { name: "Soldy AI", version: "0.4.0" },
@@ -17,7 +18,7 @@ export function createServer(
     },
   );
 
-  const client = new SoldyAPIClient(apiUrl, apiKey);
+  const client = new SoldyAPIClient(apiUrl, getApiKey, onUnauthorized);
 
   // Tools
   registerGenerationTools(server, client);
@@ -54,8 +55,11 @@ agent, no projects. Pick the one that matches the user's intent.
 ## Quick Create (\`video_*\` / \`image_*\`)
 
 Provider-agnostic direct generation from a prompt + optional references.
-\`video_*\` exposes Seedance 2.0, Seedance 2.0 Fast, and Kling 2.6 through the
-API model registry; \`image_*\` exposes GPT Image 2 and Gemini image models.
+\`video_*\` exposes Seedance 2.0, Seedance 2.0 Fast, Seedance 2.0 Mini, and
+Kling 2.6 through the API model registry; \`image_*\` exposes GPT Image 2 and
+the Gemini "Nano Banana" image models (Nano Banana Pro, Nano Banana 2). The
+registry is the source of truth — call \`video_list_models\` /
+\`image_list_models\` for the live set rather than hard-coding ids.
 
 \`\`\`
 video_list_models() → model registry + modes + parameters
