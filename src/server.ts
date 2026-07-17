@@ -11,7 +11,7 @@ export function createServer(
   onUnauthorized?: () => Promise<void>,
 ): { server: McpServer } {
   const server = new McpServer(
-    { name: "Soldy AI", version: "0.4.0" },
+    { name: "Soldy AI", version: "0.5.0" },
     {
       capabilities: { tools: {}, prompts: {} },
       instructions: SERVER_INSTRUCTIONS,
