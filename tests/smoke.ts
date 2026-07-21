@@ -2,9 +2,11 @@
  * Soldy MCP smoke test — spawn the built MCP server via stdio and exercise
  * every registered tool in a safe order. Requires a real API key + URL.
  *
- * The server exposes two one-shot paths only: Quick Create (video_* / image_*)
- * and Marketing Studio (seedance_*). There are no projects, brands, materials,
- * or a conversational agent.
+ * The server exposes two one-shot generation paths — Quick Create
+ * (video_* / image_*) and Marketing Studio (seedance_*) — plus the Product
+ * Library (product_*) and Avatar Library (avatar_*) surfaces that supply
+ * reusable product/avatar references to Marketing Studio. There are no
+ * projects, brands, or a conversational agent.
  *
  * Run:
  *   SOLDY_API_URL=https://staging-api.soldy.ai SOLDY_API_KEY=xxx \
@@ -199,6 +201,46 @@ try {
   runner.skip(
     "seedance_generate",
     'spends credits + takes minutes — manual: { module: "UGC", prompt: "...", image_url: ["https://..."] }',
+  );
+
+  // ---- Avatar Library (avatar_*) ----------------------------------------
+
+  await runner.step("avatar_search (read-only)", async () => {
+    const text = await call("avatar_search", { limit: 5 });
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `avatar_search did not return JSON: ${text.slice(0, 120)}`,
+      );
+    }
+    if (!parsed || !Array.isArray((parsed as { items?: unknown }).items)) {
+      throw new Error("avatar_search did not return an items array");
+    }
+  });
+  runner.skip(
+    "avatar_select",
+    'needs a real avatar_id from avatar_search — manual: { avatar_id: "..." }',
+  );
+  runner.skip(
+    "avatar_upload",
+    'mutates the avatar library — manual: { file_path: "/path/to/avatar.png" }',
+  );
+
+  // ---- Product Library (product_*) --------------------------------------
+
+  runner.skip(
+    "product_upload_images",
+    'uploads bytes to object storage — manual: { file_paths: ["/path/to/product.png"] }',
+  );
+  runner.skip(
+    "product_parse_url",
+    'runs a VLM DirectToolCall (may spend credits) — manual: { product_url: "https://..." }',
+  );
+  runner.skip(
+    "product_create / product_update / product_delete",
+    'mutate the product library — manual: product_create({ name: "..." }) then update/delete by id',
   );
 } finally {
   runner.printSummary();

@@ -156,6 +156,10 @@ export class SoldyAPIClient {
     return this.request<T>("POST", path, { body });
   }
 
+  async put<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>("PUT", path, { body });
+  }
+
   async delete<T>(
     path: string,
     opts?: { params?: Record<string, string>; body?: unknown },
@@ -266,11 +270,11 @@ export class SoldyAPIClient {
     return url;
   }
 
-  async uploadFile(
+  async uploadFile<T = unknown>(
     path: string,
     filePath: string,
     fields?: Record<string, string>,
-  ): Promise<ApiResponse> {
+  ): Promise<ApiResponse<T>> {
     const fileData = await readFile(filePath);
     const form = new FormData();
     form.append("file", new Blob([fileData]), basename(filePath));
@@ -293,6 +297,6 @@ export class SoldyAPIClient {
       throw new Error(`Upload ${path}: HTTP ${res.status}`);
     }
 
-    return (await res.json()) as ApiResponse;
+    return (await res.json()) as ApiResponse<T>;
   }
 }

@@ -1,7 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SoldyAPIClient } from "./client.js";
+import { registerAvatarTools } from "./tools/avatar.js";
 import { registerGenerationTools } from "./tools/generation.js";
 import { registerMarketingTools } from "./tools/marketing.js";
+import { registerProductTools } from "./tools/product.js";
 import { DEFAULT_WEB_URL } from "./web-links.js";
 
 export function createServer(
@@ -23,6 +25,8 @@ export function createServer(
   // Tools
   registerGenerationTools(server, client);
   registerMarketingTools(server, client, webUrl);
+  registerProductTools(server, client);
+  registerAvatarTools(server, client);
 
   // Workflow prompt — template-driven one-shot Video Ad generation.
   server.prompt(
@@ -86,6 +90,32 @@ seedance_generate({ prompt, module, image_url, ... }) → { task_id, share_url }
 get_seedance_task(task_id) → status + result + share URL
 \`\`\`
 
+## Product Library (\`product_*\`)
+
+Manage the reusable product objects that feed Marketing Studio ads. Uploading,
+URL parsing, and object creation are separate steps so you can review a draft
+before persisting it.
+
+\`\`\`
+product_upload_images({ file_paths }) → durable image URLs (order preserved)
+product_parse_url({ product_url }) → product draft (read-only; not persisted)
+product_create({ name, image_urls, metadata, ... }) → product object
+product_update({ product_id, ... }) → updated product object
+product_delete({ product_id }) → { deleted }
+\`\`\`
+
+## Avatar Library (\`avatar_*\`)
+
+Browse, select, and create the avatars used as presenter references. A selected
+or uploaded avatar returns \`reference: { id, url }\` that you pass straight into
+\`seedance_generate.image_url\`.
+
+\`\`\`
+avatar_search({ query?, source?, ... }) → selectable avatars (read-only)
+avatar_select({ avatar_id }) → { reference: { id, url } }
+avatar_upload({ file_path, name?, ... }) → { reference: { id, url } }
+\`\`\`
+
 ## Tools
 
 | Tool | Path | Use case |
@@ -102,6 +132,14 @@ get_seedance_task(task_id) → status + result + share URL
 | \`get_seedance_task\` | Marketing Studio | Poll a Video Ad task |
 | \`get_seedance_share_link\` | Marketing Studio | Public read-only share URL for a task |
 | \`list_seedance_history\` | Marketing Studio | Browse Video Ad render history |
+| \`product_upload_images\` | Product Library | Upload local product images → durable URLs |
+| \`product_parse_url\` | Product Library | Parse a product page into a draft (read-only) |
+| \`product_create\` | Product Library | Create a product-library object |
+| \`product_update\` | Product Library | Update a product-library object |
+| \`product_delete\` | Product Library | Delete a product-library object |
+| \`avatar_search\` | Avatar Library | Search/browse selectable avatars (read-only) |
+| \`avatar_select\` | Avatar Library | Get a generation-ready avatar reference |
+| \`avatar_upload\` | Avatar Library | Upload + create a user avatar |
 
 ## Prompts
 

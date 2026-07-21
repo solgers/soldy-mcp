@@ -1,6 +1,31 @@
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import type { SoldyAPIClient } from "./client.js";
+
+/**
+ * Resolve a user-supplied local file path to an absolute path the MCP process
+ * can read. Expands a leading `~` / `~/...` to the home directory and resolves
+ * relative paths against the current working directory. Throws if the file
+ * does not exist so callers surface a clear error before hitting the network.
+ */
+export function resolveLocalFilePath(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error("Empty file path.");
+  }
+  const expanded =
+    trimmed === "~"
+      ? homedir()
+      : trimmed.startsWith("~/")
+        ? resolve(homedir(), trimmed.slice(2))
+        : trimmed;
+  const absPath = resolve(expanded);
+  if (!existsSync(absPath)) {
+    throw new Error(`Local file not found: ${input}`);
+  }
+  return absPath;
+}
 
 /**
  * Detect if a string is a local file path (not a URL).
