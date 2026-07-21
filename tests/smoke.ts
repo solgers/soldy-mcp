@@ -157,6 +157,21 @@ try {
   await runner.step("list_seedance_history", async () => {
     await call("list_seedance_history", { page: 1, page_size: 5 });
   });
+  await runner.step("plan_video_ad (option catalog)", async () => {
+    const text = await call("plan_video_ad", {});
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `plan_video_ad did not return JSON: ${text.slice(0, 120)}`,
+      );
+    }
+    const catalog = parsed as { templates?: unknown; parameters?: unknown };
+    if (!Array.isArray(catalog.templates) || !catalog.parameters) {
+      throw new Error("plan_video_ad missing templates/parameters");
+    }
+  });
   await runner.step("list_video_ad_templates (drift check)", async () => {
     const text = await call("list_video_ad_templates", {});
     let parsed: unknown;
@@ -190,7 +205,7 @@ try {
     if (missing.length || extra.length) {
       throw new Error(
         `template drift — missing: [${missing.join(", ")}], extra: [${extra.join(", ")}]. ` +
-          `Re-sync VIDEO_AD_TEMPLATES (services/mcp/src/tools/marketing.ts) with seedanceAllowedModules ` +
+          `Re-sync VIDEO_AD_TEMPLATES (services/mcp/src/tools/video-ad-choices.ts) with seedanceAllowedModules ` +
           `(services/api/internal/transport/rest/project/seedance_direct.go) and the smoke test 'expected' list.`,
       );
     }

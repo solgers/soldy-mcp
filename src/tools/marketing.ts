@@ -3,16 +3,22 @@ import { z } from "zod";
 import type { SoldyAPIClient } from "../client.js";
 import { formatApiError } from "../errors.js";
 import { DEFAULT_WEB_URL, seedanceShareUrl } from "../web-links.js";
+import {
+  confirmVideoAdChoices,
+  VIDEO_AD_TEMPLATES,
+  videoAdParameterCatalog,
+} from "./video-ad-choices.js";
 
 // ---------------------------------------------------------------------------
-// Video Ads / Marketing Studio shared schemas + template catalog
+// Video Ads / Marketing Studio shared schemas + option catalog.
 //
-// Backend source of truth lives in services/api: `_SeedanceMediaRef` struct
-// and `seedanceAllowedModules` in
+// The template list, parameter enums, and the user-confirmation gate live in
+// ./video-ad-choices.ts. Backend source of truth is services/api:
+// `_SeedanceMediaRef` struct + `seedanceAllowedModules` in
 //   internal/transport/rest/project/seedance_direct.go
 // The web preset metadata lives in
 //   services/web/lib/generator/marketing-studio-presets.ts
-// Keep both in sync with the entries below; the smoke test asserts drift.
+// Keep them in sync with VIDEO_AD_TEMPLATES; the smoke test asserts drift.
 // ---------------------------------------------------------------------------
 
 const MEDIA_REF_SCHEMA = z.union([
@@ -26,74 +32,97 @@ function toRef(m: MediaRefInput): { url: string; id?: string } {
   return typeof m === "string" ? { url: m } : m;
 }
 
-interface VideoAdTemplate {
-  value: string;
-  name: string;
-  description: string;
-}
-
-// 9 user-facing templates + the implicit "Direct" fallback. `value` matches
-// the backend's `seedanceAllowedModules` enum exactly.
-const VIDEO_AD_TEMPLATES: VideoAdTemplate[] = [
-  { value: "UGC", name: "UGC", description: "Authentic user-style content." },
-  {
-    value: "Tutorial",
-    name: "Tutorial",
-    description: "Step-by-step tutorials.",
-  },
-  {
-    value: "Unboxing",
-    name: "Unboxing",
-    description: "High-quality unboxing.",
-  },
-  {
-    value: "Hyper_Motion",
-    name: "Hyper Motion",
-    description: "Highlight your product with hyper-motion energy.",
-  },
-  {
-    value: "Product_Review",
-    name: "Product Review",
-    description: "Authentic product review.",
-  },
-  {
-    value: "TV_Spot",
-    name: "TV Spot",
-    description: "Authentic stories, broadcast-quality amplification.",
-  },
-  {
-    value: "Wild_Card",
-    name: "Wild Card",
-    description: "Unique creative mode for custom ideas.",
-  },
-  {
-    value: "UGC_Virtual_Try_On",
-    name: "UGC Virtual Try On",
-    description: "Try-before-you-buy in UGC style.",
-  },
-  {
-    value: "Pro_Virtual_Try_On",
-    name: "Pro Virtual Try On",
-    description: "Advanced virtual try-on with polished output.",
-  },
-  {
-    value: "Direct",
-    name: "Direct",
-    description:
-      "Default fallback (no template). Generation runs from your prompt + media without a Marketing Studio preset.",
-  },
-];
-
 export function registerMarketingTools(
   server: McpServer,
   client: SoldyAPIClient,
   webUrl = DEFAULT_WEB_URL,
 ) {
   server.tool(
+    "plan_video_ad",
+    `Return the full Video Ad / Marketing Studio option catalog — every template, every parameter choice with its default, and the user's own avatars and products — so you can PRESENT the options and let the user choose.
+
+Call this FIRST for any "make me an ad / video ad / UGC / product video" request. Show the user the templates and the key parameters (aspect ratio, duration, resolution, model tier) and ask which they want. Do NOT pick a template or parameters on the user's behalf; only fall back to defaults if the user explicitly says "you choose" or "use defaults". Once the user has chosen, call \`seedance_generate\` — it will ask them to confirm the final settings before spending credits.`,
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    async () => {
+      // Best-effort: the catalog is always returned; the user's own avatars /
+      // products are added when reachable so the model can offer real picks.
+      const [avatars, products] = await Promise.all([
+        client
+          .get<
+            Array<{
+              id: string;
+              name: string;
+              description?: string;
+              source?: string;
+              thumbnail_url?: string;
+              gcs_url?: string[];
+            }>
+          >("/public/avatar/list", { page: "1", page_size: "12" })
+          .then((r) =>
+            r.code === 0
+              ? {
+                  items: (r.data ?? []).map((a) => ({
+                    id: a.id,
+                    name: a.name,
+                    description: a.description,
+                    source: a.source,
+                    url: a.gcs_url?.find((u) => u.trim().length > 0),
+                  })),
+                }
+              : { error: formatApiError(r) },
+          )
+          .catch((e: unknown) => ({ error: String(e) })),
+        client
+          .get<Array<{ id: string; name: string; description?: string }>>(
+            "/public/product/list",
+            { page: "1", page_size: "12" },
+          )
+          .then((r) =>
+            r.code === 0
+              ? {
+                  items: (r.data ?? []).map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                  })),
+                }
+              : { error: formatApiError(r) },
+          )
+          .catch((e: unknown) => ({ error: String(e) })),
+      ]);
+
+      const catalog = {
+        instructions:
+          "Present these options to the user and let them choose before calling seedance_generate. Do not silently apply defaults.",
+        templates: VIDEO_AD_TEMPLATES,
+        parameters: videoAdParameterCatalog(),
+        avatars: {
+          ...avatars,
+          note: "Selectable presenter avatars. Call avatar_search to browse more, or avatar_upload to add one; pass the chosen avatar's { id, url } into seedance_generate.image_url.",
+        },
+        products: {
+          ...products,
+          note: "Product-library objects. Call product_parse_url or product_create to add one; pass its image URLs into seedance_generate.image_url.",
+        },
+      };
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify(catalog, null, 2) },
+        ],
+      };
+    },
+  );
+
+  server.tool(
     "list_video_ad_templates",
     `List the available Video Ad / Marketing Studio templates. Each entry's \`value\` is what you pass as \`module\` to \`seedance_generate\`.
 
-Call this whenever the user asks for a template-style ad ("UGC", "unboxing video", "product review", "tutorial", etc.) and you need to confirm the available presets or pick the right \`module\` value. The list is small and stable; you can also pass \`module\` directly if you already know the value.`,
+Prefer \`plan_video_ad\` when the user is starting an ad — it returns the templates AND the parameter choices AND the user's avatars/products in one call. Use this tool when you only need the template list to confirm a \`module\` value the user already named.`,
     {},
     async () => ({
       content: [
@@ -107,9 +136,11 @@ Call this whenever the user asks for a template-style ad ("UGC", "unboxing video
 
   server.tool(
     "seedance_generate",
-    `Generate a **Video Ad / Marketing Studio** video. Pick a \`module\` template (call \`list_video_ad_templates\` for the full catalog with descriptions) and attach product/avatar references in \`image_url\`.
+    `Generate a **Video Ad / Marketing Studio** video. Attach product/avatar references in \`image_url\`.
 
-Returns a \`task_id\` immediately; poll with \`get_seedance_task\`. Use this whenever the user has chosen a template or just wants a single video rendered from a prompt + reference.
+Call this only AFTER the user has chosen the template and parameters — run \`plan_video_ad\` first and let the user pick. Do not invent a \`module\`, \`ratio\`, \`duration\`, or \`resolution\` on the user's behalf; only apply defaults if the user explicitly said "you choose" / "use defaults". On clients that support it, this tool pops a confirmation form and the user must approve the final settings before any credits are spent (declining aborts the render).
+
+Returns a \`task_id\` immediately; poll with \`get_seedance_task\`.
 
 Allowed:
 - model: "doubao-seedance-2-0-260128" (default) | "doubao-seedance-2-0-fast-260128" | "doubao-seedance-2-0-mini-260615" (Mini; 480p/720p only)
@@ -194,10 +225,34 @@ Allowed:
         ),
     },
     async (args) => {
+      // User-first hard gate: confirm the ad type + parameters before spending
+      // credits. On clients that support elicitation the user must accept (and
+      // may edit) the settings; declining aborts. Otherwise falls through to
+      // the model's args (the options-first prompt guidance is the backstop).
+      const gate = await confirmVideoAdChoices(server, {
+        module: args.module,
+        ratio: args.ratio,
+        duration: args.duration,
+        resolution: args.resolution,
+        model: args.model,
+      });
+      if (gate.status === "declined" || gate.status === "cancelled") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "No video was generated — you dismissed the settings confirmation. Tell me what to change (template, aspect ratio, duration, resolution, model) and I'll set it up again.",
+            },
+          ],
+        };
+      }
+      const confirmed = gate.status === "accepted" ? gate.values : {};
+
       const body: Record<string, unknown> = { prompt: args.prompt };
       if (args.image_url?.length) body.image_url = args.image_url.map(toRef);
       if (args.video_url?.length) body.video_url = args.video_url.map(toRef);
       if (args.audio_url?.length) body.audio_url = args.audio_url.map(toRef);
+      const effective = { ...args, ...confirmed };
       for (const k of [
         "duration",
         "ratio",
@@ -207,7 +262,7 @@ Allowed:
         "module",
         "callback_url",
       ] as const) {
-        const v = args[k];
+        const v = effective[k];
         if (v !== undefined) body[k] = v;
       }
 

@@ -81,11 +81,19 @@ registry-owned values through.
 ## Marketing Studio (\`seedance_generate\`)
 
 Template-driven Video Ad generation (UGC, Tutorial, Unboxing, Product Review,
-TV Spot, Hyper Motion, Wild Card, Virtual Try On). One call, returns a public
-read-only share page.
+TV Spot, Hyper Motion, Wild Card, Virtual Try On). Returns a public read-only
+share page.
+
+**Options first — do not auto-pick.** For any "make me an ad" request, call
+\`plan_video_ad\` and present the templates + parameters (aspect ratio,
+duration, resolution, model) + the user's avatars/products, then let the user
+choose. Only apply defaults if the user explicitly says "you choose" / "use
+defaults". \`seedance_generate\` also asks the user to confirm the final
+settings before spending credits (where the client supports it).
 
 \`\`\`
-list_video_ad_templates() → the module catalog with descriptions
+plan_video_ad() → full option catalog (templates + params + avatars + products)
+list_video_ad_templates() → just the module catalog with descriptions
 seedance_generate({ prompt, module, image_url, ... }) → { task_id, share_url }
 get_seedance_task(task_id) → status + result + share URL
 \`\`\`
@@ -127,8 +135,9 @@ avatar_upload({ file_path, name?, ... }) → { reference: { id, url } }
 | \`video_retry_task\` / \`image_retry_task\` | Quick Create | Retry terminal direct generation tasks |
 | \`video_delete_task\` / \`image_delete_task\` | Quick Create | Delete terminal direct generation tasks |
 | \`video_get_lineage\` / \`image_get_lineage\` | Quick Create | Trace a task's input/output lineage |
+| \`plan_video_ad\` | Marketing Studio | Full option catalog to present before generating |
 | \`list_video_ad_templates\` | Marketing Studio | Discover the module template catalog |
-| \`seedance_generate\` | Marketing Studio | Submit a template Video Ad render |
+| \`seedance_generate\` | Marketing Studio | Submit a template Video Ad render (confirms first) |
 | \`get_seedance_task\` | Marketing Studio | Poll a Video Ad task |
 | \`get_seedance_share_link\` | Marketing Studio | Public read-only share URL for a task |
 | \`list_seedance_history\` | Marketing Studio | Browse Video Ad render history |
@@ -148,60 +157,51 @@ avatar_upload({ file_path, name?, ... }) → { reference: { id, url } }
 
 const VIDEO_ADS_WORKFLOW_PROMPT = `# Video Ads / Marketing Studio (template path)
 
-Template-driven, deterministic, one-shot video ad generation through
-\`seedance_generate\`. If the user wants a non-template direct render, use
-\`video_list_models\` / \`video_generate\` (or \`image_*\`) instead.
+Template-driven video ad generation through \`seedance_generate\`. If the user
+wants a non-template direct render, use \`video_list_models\` /
+\`video_generate\` (or \`image_*\`) instead.
 
-## When to take this path
+## Core rule: options first, user chooses
 
-The user has already picked the format and just wants it rendered:
-
-- "Make me a **UGC** ad for this product image."
-- "I want an **unboxing** video using this photo."
-- "Generate a **product review** video, 9:16, 15 seconds."
-- "Render a **tutorial** style clip."
-- "Just run this prompt with the **TV Spot** template."
-
-One call to \`seedance_generate\` is enough. For Kling 2.6 or provider-agnostic
-Seedance/Gemini/GPT Image 2 requests, use the Quick Create \`video_*\` /
-\`image_*\` tools instead.
+The user picks the ad type and settings — you don't. **Do not auto-select a
+template, aspect ratio, duration, resolution, model, or avatar**, and do not
+announce a "default plan" and proceed. The only exception is when the user
+explicitly says "you choose" / "just use defaults" / "surprise me".
 
 ## Procedure
 
-1. **Confirm the template.** If the user named one (UGC / Tutorial / Unboxing
-   / Hyper_Motion / Product_Review / TV_Spot / Wild_Card / UGC_Virtual_Try_On
-   / Pro_Virtual_Try_On / Direct), use it. If they described a *style* but not
-   a template name, call \`list_video_ad_templates\` to see the catalog and
-   pick the closest match — surface 2–3 options to the user only when the
-   match is genuinely ambiguous.
+1. **Present the options.** Call \`plan_video_ad\`. It returns every template,
+   every parameter (aspect ratio, duration, resolution, model tier) with its
+   default, and the user's own avatars and products. Show these to the user in
+   a compact form and ask what they want — at minimum the **template**, and the
+   key parameters if they care. Point out that spoken language is auto-detected
+   from the prompt (they can name a language to override).
 
-2. **Gather references.** Most templates expect a product image. Pass it via
-   \`image_url\`. The argument accepts either:
-   - plain URL strings: \`["https://…"]\`
-   - or material-library refs: \`[{ url: "https://…", id: "mat_…" }]\`
-     (use the \`id\` form when you got it from a Soldy material list).
+2. **Let the user pick a presenter + product.** Offer the avatars and products
+   from \`plan_video_ad\`. To browse more, call \`avatar_search\`; to add one,
+   \`avatar_upload\`. For products, \`product_parse_url\` / \`product_create\`.
+   Pass the chosen references via \`image_url\` — either plain URL strings
+   (\`["https://…"]\`) or material-library refs (\`[{ url, id }]\`; keep the
+   \`id\` so the backend resolves the original asset).
 
-3. **Submit.** Call \`seedance_generate\` with at minimum \`prompt\` and
-   \`module\`. Optional: \`ratio\` (default 9:16), \`input_ratio\` (same
-   allowed set as \`ratio\`; overrides \`ratio\` for downstream tooling
-   when set), \`duration\` (4–15 seconds, default 10), \`resolution\`
-   (480p / 720p / 1080p), \`model\`, \`video_url\`, \`audio_url\`. You
-   get back a \`task_id\` and public share URL immediately.
+3. **Submit for confirmation.** Once the user has chosen, call
+   \`seedance_generate\` with their selections (\`prompt\`, \`module\`,
+   \`ratio\`, \`duration\`, \`resolution\`, \`model\`, \`image_url\`, …). The
+   tool then asks the user to confirm/edit the final settings before spending
+   credits; if they dismiss it, nothing is generated — ask what to change and
+   retry. You get back a \`task_id\` and share URL.
 
 4. **Poll.** Call \`get_seedance_task(task_id)\` until \`status\` is
    \`succeeded\` or \`failed\`. Generation typically takes 1–3 minutes — tell
    the user it's running. Surface the \`result\` JSON and share URL when done.
 
-5. **Share.** If the user asks for a link, call
-   \`get_seedance_share_link(task_id)\`. The page is read-only and matches the
-   web product's shared Video Ads detail view.
-
-6. **History.** Use \`list_seedance_history\` if the user asks "what have I
-   rendered?". It includes the same share URLs.
+5. **Share / history.** \`get_seedance_share_link(task_id)\` for a read-only
+   link; \`list_seedance_history\` for "what have I rendered?".
 
 ## Boundaries
 
-- Don't invent template values. The \`module\` enum is closed; if you're not
-  sure, call \`list_video_ad_templates\`.
-- Don't strip the \`id\` off material-library refs — pass them through so the
-  backend can resolve the original asset.`;
+- Don't invent template values. The \`module\` enum is closed; take it from
+  \`plan_video_ad\` / \`list_video_ad_templates\`.
+- Don't pre-fill parameters the user hasn't chosen — leave them out and let the
+  confirmation step / user choice fill them, unless the user opted into defaults.
+- Don't strip the \`id\` off material-library refs.`;
