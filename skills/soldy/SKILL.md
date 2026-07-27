@@ -102,7 +102,7 @@ Full parameter docs: [references/tools.md](references/tools.md). One-line summar
 - `list_video_ad_templates()` — discover available templates (UGC, Tutorial, Unboxing, Hyper_Motion, Product_Review, TV_Spot, Wild_Card, UGC_Virtual_Try_On, Pro_Virtual_Try_On, Direct). Each entry's `value` is what you pass as `module`.
 - `seedance_generate({ prompt, image_url?, module?, ratio?, ... })` — submit a Video Ad / Marketing Studio task. Returns a `task_id` and share URL immediately.
 - `get_seedance_task(task_id)` — poll until `status` is `succeeded` or `failed`. Generation typically takes 1–3 minutes; returns the public read-only share URL.
-- `get_seedance_share_link(task_id)` — get the web share page for a Video Ads task (`/app/share/video-ads/{task_id}`).
+- `get_seedance_share_link(task_id)` — get the web share page for a Video Ads task (`/app/share/marketing-studio/{task_id}`).
 - `list_seedance_history(...)` — past Seedance tasks for the user, including share links.
 
 ## Aspect ratios

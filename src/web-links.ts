@@ -22,7 +22,7 @@ export function resolveWebUrl(apiUrl: string, explicitWebUrl?: string): string {
 }
 
 export function seedanceShareUrl(webUrl: string, taskId: string): string {
-  return `${trimTrailingSlash(webUrl)}/app/share/video-ads/${encodeURIComponent(taskId)}`;
+  return `${trimTrailingSlash(webUrl)}/app/share/marketing-studio/${encodeURIComponent(taskId)}`;
 }
 
 function localWebUrl(apiUrl: URL): string {

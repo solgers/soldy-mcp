@@ -134,7 +134,7 @@ Poll a Seedance task by ID. Returns `status` (`pending` / `running` / `succeeded
 
 ### get_seedance_share_link
 
-Return the public read-only web share URL for a Video Ads / Marketing Studio task (`/app/share/video-ads/{task_id}`).
+Return the public read-only web share URL for a Video Ads / Marketing Studio task (`/app/share/marketing-studio/{task_id}`).
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
