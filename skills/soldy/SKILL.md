@@ -16,7 +16,7 @@ Discover Quick Create models with **`video_list_models`** / **`image_list_models
 
 ## Path A: Quick Create (`video_*` / `image_*`)
 
-Provider-agnostic direct generation from a prompt plus optional reference assets. `video_*` exposes Seedance 2.0, Seedance 2.0 Fast, and Kling 2.6 through the API model registry; `image_*` exposes GPT Image 2 and Gemini image models. Everything is one call to submit and a poll to retrieve — no back-and-forth.
+Provider-agnostic direct generation from a prompt plus optional reference assets. `video_*` exposes Seedance 2.0, Seedance 2.0 Fast, Kling 2.6, and MiniMax H3 through the API model registry; `image_*` exposes GPT Image 2 and Gemini image models. Everything is one call to submit and a poll to retrieve — no back-and-forth.
 
 The registry owns the valid `model`, `mode`, and parameter values. When you aren't sure which combination matches the request, call `video_list_models` / `image_list_models` first and pass the registry-owned values straight through.
 

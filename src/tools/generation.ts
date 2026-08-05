@@ -273,7 +273,7 @@ export function registerGenerationTools(
 ) {
   server.tool(
     "video_list_models",
-    "List unified Quick Generation video model capabilities. Use this before video_generate to discover model ids, modes, parameters, and assets. Includes Seedance 2.0/2.0 Fast and Kling 2.6 when enabled for the API key.",
+    "List unified Quick Generation video model capabilities. Use this before video_generate to discover model ids, modes, parameters, and assets. Includes Seedance 2.0/2.0 Fast, Kling 2.6, and MiniMax H3 when enabled for the API key.",
     {},
     async () => {
       const resp = await client.get<GenerationModelEntry[]>(

@@ -59,8 +59,8 @@ agent, no projects. Pick the one that matches the user's intent.
 ## Quick Create (\`video_*\` / \`image_*\`)
 
 Provider-agnostic direct generation from a prompt + optional references.
-\`video_*\` exposes Seedance 2.0, Seedance 2.0 Fast, Seedance 2.0 Mini, and
-Kling 2.6 through the API model registry; \`image_*\` exposes GPT Image 2 and
+\`video_*\` exposes Seedance 2.0, Seedance 2.0 Fast, Seedance 2.0 Mini,
+Kling 2.6, and MiniMax H3 through the API model registry; \`image_*\` exposes GPT Image 2 and
 the Gemini "Nano Banana" image models (Nano Banana Pro, Nano Banana 2). The
 registry is the source of truth — call \`video_list_models\` /
 \`image_list_models\` for the live set rather than hard-coding ids.

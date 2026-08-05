@@ -6,7 +6,7 @@ Complete parameter reference for every MCP tool exposed by `@soldy_ai/mcp`. Ther
 
 ## Quick Create — Video (`video_*`)
 
-Provider-agnostic direct video generation through the API model registry (Seedance 2.0, Seedance 2.0 Fast, and Kling 2.6 when enabled for the API key).
+Provider-agnostic direct video generation through the API model registry (Seedance 2.0, Seedance 2.0 Fast, Kling 2.6, and MiniMax H3 when enabled for the API key).
 
 ### video_list_models
 

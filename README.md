@@ -52,7 +52,7 @@ Two one-shot generation paths — no projects, no conversational agent.
 
 **Quick Create** (provider-agnostic direct render)
 
-- Generate video tasks with Seedance 2.0 / Seedance 2.0 Fast / Seedance 2.0 Mini / Kling 2.6
+- Generate video tasks with Seedance 2.0 / Seedance 2.0 Fast / Seedance 2.0 Mini / Kling 2.6 / MiniMax H3
 - Generate image tasks with GPT Image 2 / Nano Banana Pro / Nano Banana 2 (Gemini)
 - Submit prompts + reference media, then poll, list, retry, or delete tasks
 
