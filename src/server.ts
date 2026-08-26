@@ -13,7 +13,7 @@ export function createServer(
   onUnauthorized?: () => Promise<void>,
 ): { server: McpServer } {
   const server = new McpServer(
-    { name: "Soldy AI", version: "0.5.0" },
+    { name: "Soldy AI", version: "0.8.0" },
     {
       capabilities: { tools: {}, prompts: {} },
       instructions: SERVER_INSTRUCTIONS,
@@ -80,23 +80,44 @@ registry-owned values through.
 
 ## Marketing Studio (\`seedance_generate\`)
 
-Template-driven Video Ad generation (UGC, Tutorial, Unboxing, Product Review,
-TV Spot, Hyper Motion, Wild Card, Virtual Try On). Returns a public read-only
-share page.
+Template-driven Video Ad generation across 21 published templates — UGC, UGC
+Try On, Unboxing, Unboxing ASMR, Direct to Camera, Routine Insert, Try It On
+Face, Sneakers Try-On, Model Pro Try-On, Testimonial, This Saved Me, Before &
+After, Show How It Works, Giant Figure, Product In Use, Close-Up-Detail Proof,
+Show the Texture, Hyper Motion, TV Spot, Wild Concept, UGC Showing Product —
+plus legacy aliases and a \`Direct\` no-template fallback. Returns a public
+read-only share page.
+
+The catalog is **live and database-backed**: \`plan_video_ad\` reads the
+published template rows, so never hard-code a template list. Each row carries a
+\`marketing_template_id\`, a \`module\`, whether it needs a presenter avatar,
+whether it accepts an opening hook, and its allowed duration window.
 
 **Options first — do not auto-pick.** For any "make me an ad" request, call
 \`plan_video_ad\` and present the templates + parameters (aspect ratio,
-duration, resolution, model) + the user's avatars/products, then let the user
-choose. Only apply defaults if the user explicitly says "you choose" / "use
+duration, resolution, model) + hooks + the user's avatars/products, then let the
+user choose. Only apply defaults if the user explicitly says "you choose" / "use
 defaults". \`seedance_generate\` also asks the user to confirm the final
 settings before spending credits (where the client supports it).
 
 \`\`\`
-plan_video_ad() → full option catalog (templates + params + avatars + products)
-list_video_ad_templates() → just the module catalog with descriptions
-seedance_generate({ prompt, module, image_url, ... }) → { task_id, share_url }
-get_seedance_task(task_id) → status + result + share URL
+plan_video_ad() → live templates + params + hooks + avatars + products
+list_video_ad_templates() → the template/module catalog with descriptions
+list_video_ad_hooks() → opening-hook library (Hooks Studio)
+seedance_generate({ prompt, module, marketing_template_id, image_url, hook_id?, ... }) → { task_id, share_url }
+get_seedance_task(task_id) → status + template + hook + result + share URL
 \`\`\`
+
+Rules that the backend enforces, so respect them before submitting:
+- Pass the picked template's \`module\` **and** \`marketing_template_id\` together.
+- \`duration\` must sit inside that template's \`duration_range\`
+  (\`duration_range_with_hook\` when a \`hook_id\` is attached). \`-1\` (auto)
+  is rejected whenever \`marketing_template_id\` is set.
+- \`hook_id\` only works on \`hook_capable\` templates, and a template whose
+  \`hook_policy\` is \`allowlist\` accepts only its listed hooks.
+- Tag reference images with their role: \`{ url, id, type: "avatar" }\` for the
+  presenter, \`{ url, id, type: "product" }\` for the product. Templates with
+  \`requires_avatar\` need an avatar reference.
 
 ## Product Library (\`product_*\`)
 
@@ -135,8 +156,9 @@ avatar_upload({ file_path, name?, ... }) → { reference: { id, url } }
 | \`video_retry_task\` / \`image_retry_task\` | Quick Create | Retry terminal direct generation tasks |
 | \`video_delete_task\` / \`image_delete_task\` | Quick Create | Delete terminal direct generation tasks |
 | \`video_get_lineage\` / \`image_get_lineage\` | Quick Create | Trace a task's input/output lineage |
-| \`plan_video_ad\` | Marketing Studio | Full option catalog to present before generating |
-| \`list_video_ad_templates\` | Marketing Studio | Discover the module template catalog |
+| \`plan_video_ad\` | Marketing Studio | Full live option catalog to present before generating |
+| \`list_video_ad_templates\` | Marketing Studio | Discover the published template + module catalog |
+| \`list_video_ad_hooks\` | Marketing Studio | Browse opening hooks (Hooks Studio) |
 | \`seedance_generate\` | Marketing Studio | Submit a template Video Ad render (confirms first) |
 | \`get_seedance_task\` | Marketing Studio | Poll a Video Ad task |
 | \`get_seedance_share_link\` | Marketing Studio | Public read-only share URL for a task |
@@ -170,38 +192,57 @@ explicitly says "you choose" / "just use defaults" / "surprise me".
 
 ## Procedure
 
-1. **Present the options.** Call \`plan_video_ad\`. It returns every template,
+1. **Present the options.** Call \`plan_video_ad\`. It returns the live
+   published templates (each with a \`marketing_template_id\`, its \`module\`,
+   \`requires_avatar\`, \`hook_capable\`, and its allowed \`duration_range\`),
    every parameter (aspect ratio, duration, resolution, model tier) with its
-   default, and the user's own avatars and products. Show these to the user in
-   a compact form and ask what they want — at minimum the **template**, and the
-   key parameters if they care. Point out that spoken language is auto-detected
-   from the prompt (they can name a language to override).
+   default, the opening-hook library, and the user's own avatars and products.
+   Show these to the user in a compact form — templates grouped by
+   \`category\` (\`ugc\` / \`commercial\`) reads well — and ask what they want:
+   at minimum the **template**, and the key parameters if they care. Point out
+   that spoken language is auto-detected from the prompt (they can name a
+   language to override).
 
 2. **Let the user pick a presenter + product.** Offer the avatars and products
    from \`plan_video_ad\`. To browse more, call \`avatar_search\`; to add one,
    \`avatar_upload\`. For products, \`product_parse_url\` / \`product_create\`.
-   Pass the chosen references via \`image_url\` — either plain URL strings
-   (\`["https://…"]\`) or material-library refs (\`[{ url, id }]\`; keep the
-   \`id\` so the backend resolves the original asset).
+   Pass the chosen references via \`image_url\` as material-library refs with
+   their role — \`{ url, id, type: "avatar" }\` and
+   \`{ url, id, type: "product" }\`. Keep the \`id\` so the backend resolves
+   the original asset. A template with \`requires_avatar\` needs an avatar.
 
-3. **Submit for confirmation.** Once the user has chosen, call
+3. **Offer an opening hook (optional).** Only when the chosen template is
+   \`hook_capable\`. \`list_video_ad_hooks\` returns the Hooks Studio library;
+   pass the chosen \`hook_id\`. If the template's \`hook_policy\` is
+   \`allowlist\`, only its listed hooks are accepted; if it is \`disabled\`,
+   don't offer hooks at all.
+
+4. **Submit for confirmation.** Once the user has chosen, call
    \`seedance_generate\` with their selections (\`prompt\`, \`module\`,
-   \`ratio\`, \`duration\`, \`resolution\`, \`model\`, \`image_url\`, …). The
-   tool then asks the user to confirm/edit the final settings before spending
-   credits; if they dismiss it, nothing is generated — ask what to change and
-   retry. You get back a \`task_id\` and share URL.
+   \`marketing_template_id\`, \`ratio\`, \`duration\`, \`resolution\`,
+   \`model\`, \`image_url\`, \`hook_id\`, …). Keep \`duration\` inside the
+   template's \`duration_range\` (or \`duration_range_with_hook\` when a hook
+   is attached) — \`-1\` auto is rejected once a \`marketing_template_id\` is
+   set. The tool then asks the user to confirm/edit the final settings before
+   spending credits; if they dismiss it, nothing is generated — ask what to
+   change and retry. You get back a \`task_id\` and share URL.
 
-4. **Poll.** Call \`get_seedance_task(task_id)\` until \`status\` is
+5. **Poll.** Call \`get_seedance_task(task_id)\` until \`status\` is
    \`succeeded\` or \`failed\`. Generation typically takes 1–3 minutes — tell
    the user it's running. Surface the \`result\` JSON and share URL when done.
 
-5. **Share / history.** \`get_seedance_share_link(task_id)\` for a read-only
-   link; \`list_seedance_history\` for "what have I rendered?".
+6. **Share / history.** \`get_seedance_share_link(task_id)\` for a read-only
+   link; \`list_seedance_history\` for "what have I rendered?" (filterable by
+   \`project_id\` and \`hooks_only\`).
 
 ## Boundaries
 
-- Don't invent template values. The \`module\` enum is closed; take it from
-  \`plan_video_ad\` / \`list_video_ad_templates\`.
+- Don't invent template values or ids. The \`module\` enum is closed and the
+  \`marketing_template_id\` list is live; take both from \`plan_video_ad\` /
+  \`list_video_ad_templates\`.
 - Don't pre-fill parameters the user hasn't chosen — leave them out and let the
   confirmation step / user choice fill them, unless the user opted into defaults.
-- Don't strip the \`id\` off material-library refs.`;
+- Don't attach a \`hook_id\` to a template that isn't \`hook_capable\`, and
+  don't send a \`duration\` outside the template's range — both are hard
+  backend rejections.
+- Don't strip the \`id\` or the \`type\` role off material-library refs.`;

@@ -26,7 +26,11 @@
 | `WORKSPACE_NOT_FOUND` | No workspace in org | Log in to [soldy.ai](https://soldy.ai) and create a workspace |
 | `RATE_LIMIT_EXCEEDED` | Too many API requests | Wait and retry; reduce request frequency |
 | Invalid `model` / `mode` | Value not in the registry | Call `video_list_models` / `image_list_models` and pass a listed value |
-| Invalid `module` | Template value not recognized | Call `list_video_ad_templates`; the `module` enum is closed |
+| Invalid `module` | Template value not recognized | Call `plan_video_ad` / `list_video_ad_templates`; the `module` enum is closed |
+| `MARKETING_TEMPLATE_NOT_FOUND` | `marketing_template_id` is unknown or unpublished | Re-run `plan_video_ad` and use a current id |
+| `MARKETING_TEMPLATE_HOOK_NOT_ALLOWED` | Hook not permitted for this template, or `module` doesn't match the template row | Check the template's `hook_policy`; drop `hook_id` or pick an allowlisted one, and pass the template's own `module` |
+| `MARKETING_TEMPLATE_HOOK_DURATION_INVALID` | `duration` outside the template's window, or `-1` with a `marketing_template_id` | Use `duration_range` (or `duration_range_with_hook`) from `plan_video_ad`; never send `-1` with a template |
+| `HOOK_MODULE_NOT_SUPPORTED` | `hook_id` on a module that can't take one | Drop `hook_id`, or pick a `hook_capable` template |
 
 ## Task Status Issues
 
@@ -58,7 +62,9 @@
 | Mistake | Correct Approach |
 |---------|-----------------|
 | Guessing `model` / `mode` values | Call `video_list_models` / `image_list_models` and pass a registry value |
-| Guessing a template `module` | Call `list_video_ad_templates`; the enum is closed |
+| Guessing a template `module` | Call `plan_video_ad` / `list_video_ad_templates`; the enum is closed |
+| Sending `duration: -1` with a template | Templates reject auto duration — pick a value inside `duration_range` |
+| Dropping the `type` role off `image_url` refs | Tag `"avatar"` / `"product"` so the template places each reference correctly |
 | Routing a format-named ad through Quick Create | "Make me a UGC ad" is Marketing Studio — use `seedance_generate` with the `module` |
 | Routing a raw render through Marketing Studio | "Render this with Kling" is Quick Create — use `video_generate` |
 | Expecting instant results | Generation takes minutes — submit, tell the user it's running, then poll |

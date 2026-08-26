@@ -58,9 +58,16 @@ Two one-shot generation paths — no projects, no conversational agent.
 
 **Marketing Studio** (template-driven Video Ads)
 
-- Render UGC, Unboxing, Tutorial, Product Review, TV Spot, Hyper Motion,
-  Wild Card, and Virtual Try-On ads from a single call
-- Attach product/avatar reference images across aspect ratios (9:16, 16:9, 1:1, …)
+- Browse the live published template catalog — 21 formats across UGC (UGC Try
+  On, Unboxing ASMR, Direct to Camera, Routine Insert, Try It On Face, Sneakers
+  Try-On, Testimonial, This Saved Me, Before & After, Show How It Works, Giant
+  Figure, …) and commercial (TV Spot, Hyper Motion, Wild Concept, Product In
+  Use, Close-Up-Detail Proof, Show the Texture, Model Pro Try-On) — plus a
+  `Direct` no-template fallback
+- Render an ad from a single call, with the template's own duration limits
+- Attach an optional opening hook from the Hooks Studio library
+- Attach role-tagged product/avatar reference images across aspect ratios
+  (9:16, 16:9, 1:1, …)
 - Share generated Video Ads via public read-only links and browse render history
 
 ## License

@@ -92,41 +92,70 @@ Manage Quick Create image tasks.
 
 ---
 
-## Marketing Studio / Video Ads (`seedance_*`)
+## Marketing Studio / Video Ads (`plan_video_ad`, `seedance_*`)
 
-Template-driven, one-shot Video Ad generation via Seedance. Returns a `task_id` and a public read-only share link immediately.
+Template-driven, one-shot Video Ad generation via Seedance. Returns a `task_id` and a public read-only share link immediately. The template catalog is live and database-backed — read it, don't hard-code it.
+
+### plan_video_ad
+
+The full option catalog to present before generating. Read-only. **Call this first for any ad request.**
+
+No parameters. Returns JSON with:
+
+| Key | Contents |
+|---|---|
+| `templates.items` | Live published templates: `marketing_template_id`, `template_key`, `name`, `description`, `category` (`ugc` / `commercial`), `module`, `requires_avatar`, `hook_capable`, `hook_policy`, `duration_range`, `duration_range_with_hook`, `defaults`, `preview_url` |
+| `modules` | Static module catalog (`value`, `name`, `description`, `category`, `requiresAvatar`, `hookCapable`) plus `legacy` aliases and the `direct` fallback |
+| `parameters` | Every parameter with its default, options, and limits |
+| `hooks` | Opening-hook library: `presets` and the user's own `user` hooks |
+| `avatars` / `products` | The user's own libraries, ready to pass into `image_url` |
 
 ### list_video_ad_templates
 
-List the available Video Ad / Marketing Studio templates. Each entry's `value` is what you pass as `module` to `seedance_generate`. The list is small and stable; you can also pass `module` directly if you already know the value.
+List the Video Ad / Marketing Studio templates. Each module entry's `value` is what you pass as `module` to `seedance_generate`; each published row also carries the `marketing_template_id` to pass alongside it. Prefer `plan_video_ad` when starting an ad.
 
-No parameters. Returns the catalog as JSON: `[{ value, name, description }]`.
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `published_only` | boolean | no | Default `false`. When `true`, return only the live published rows and omit the static module catalog. |
 
-Template values: `UGC`, `Tutorial`, `Unboxing`, `Hyper_Motion`, `Product_Review`, `TV_Spot`, `Wild_Card`, `UGC_Virtual_Try_On`, `Pro_Virtual_Try_On`, and `Direct` (default fallback — runs from prompt + media with no template preset).
+Module values — 21 templates: `UGC`, `UGC_Try_On`, `Unboxing_ASMR`, `This_Saved_Me`, `Product_First`, `Close_Up_Detail_Proof`, `Show_The_Texture`, `UGC_Showing_Product`, `Routine_Insert`, `Direct_To_Camera`, `Giant_Figure`, `Try_It_On_Face`, `Show_How_It_Works`, `Unboxing`, `Hyper_Motion`, `Before_After`, `Sneakers_Try_On`, `Model_Pro_Try_On`, `TV_Spot`, `Wild_Concept`, `Testimonial`. Legacy aliases: `Tutorial`, `Product_Review`, `Wild_Card`, `UGC_Virtual_Try_On`, `Pro_Virtual_Try_On`. Plus `Direct` (default fallback — runs from prompt + media with no template preset).
+
+### list_video_ad_hooks
+
+The opening-hook library (Hooks Studio). Pass a chosen entry's `hook_id` to `seedance_generate`. Hook prompt bodies stay server-side; you get `hook_id`, `name`, `description`, `category`, `source`.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `category` | string | no | Preset category filter: `recommended`, `high_interruption`, `trust_building`, `tutorial`, `ugc_natural` |
+| `limit` | number | no | Max hooks per group. Default 24, capped at 100. |
 
 ### seedance_generate
 
-Submit a Video Ad / Marketing Studio task. Pick a `module` template and attach product/avatar references in `image_url`.
+Submit a Video Ad / Marketing Studio task. Pick a template, attach product/avatar references in `image_url`, and pass both its `module` and `marketing_template_id`.
 
 | Parameter | Type | Required | Notes |
 |---|---|---|---|
 | `prompt` | string | yes | Generation prompt |
-| `image_url` | array | no | Reference image(s). Plain URL strings, or `{ url, id }` objects where `id` references an item from the user's material library. Pass the `id` through when you have it. |
+| `image_url` | array | no | Reference image(s). Plain URL strings, or `{ url, id?, thumbnail_url?, type? }` objects where `id` references an item from the user's material library and `type` is the Marketing Studio role (`"product"`, `"avatar"`, `"image"`). Pass the `id` and the role through when you have them. |
 | `video_url` | array | no | Reference video(s). Same shape as `image_url`. |
 | `audio_url` | array | no | Reference audio track(s). Same shape as `image_url`. |
-| `duration` | number | no | Seconds: `-1` (auto) or 4–15. Default 10. |
+| `duration` | number | no | Seconds: 4–15, default 10. `-1` (auto) only when no `marketing_template_id` is set. A template narrows this — use its `duration_range` (or `duration_range_with_hook`). |
 | `ratio` | enum | no | `16:9` `4:3` `1:1` `3:4` `9:16` `21:9` `adaptive`. Default `9:16`. |
 | `input_ratio` | enum | no | Input reference aspect ratio. When set, the backend uses this in place of `ratio` downstream. Same allowed values as `ratio`. |
-| `model` | enum | no | `doubao-seedance-2-0-260128` (default) or `doubao-seedance-2-0-fast-260128` |
-| `resolution` | enum | no | `480p` `720p` `1080p`. Default `720p`. |
-| `module` | enum | no | `Direct` (default; no template), `UGC`, `Tutorial`, `Unboxing`, `Hyper_Motion`, `Product_Review`, `TV_Spot`, `Wild_Card`, `UGC_Virtual_Try_On`, `Pro_Virtual_Try_On` |
+| `model` | enum | no | `doubao-seedance-2-0-260128` (Standard, default), `doubao-seedance-2-0-fast-260128` (Fast), `doubao-seedance-2-0-mini-260615` (Mini; 480p/720p only) |
+| `resolution` | enum | no | `480p` `720p` `1080p` `4k` `1080P`. Default `720p`. `4k` / `1080P` are upscale tiers; `1080P` requires the Standard model. |
+| `module` | enum | no | `Direct` (default; no template) or any of the 21 templates / 5 legacy aliases above |
+| `marketing_template_id` | string | no | Published template row id (`mktpl_…`) from `plan_video_ad`. Pass it whenever the user picked a template — the backend checks it matches `module` and enforces the template's hook + duration policy. |
+| `hook_id` | string | no | Opening-hook id (`hookt_…`) from `list_video_ad_hooks`. Hook-capable modules only; the template's `hook_policy` may restrict which hooks are allowed. |
+| `hook_selection_source` | enum | no | Analytics-only: `marketing_studio` (default when a hook is set), `hooks_studio`, `landing`, `share` |
+| `project_id` | string | no | Marketing project to group this render under. Omit to let the API create one. |
 | `callback_url` | string | no | Optional HTTPS URL for Volcano Ark task callbacks (http allowed for localhost) |
 
 Returns a `task_id`, `status`, and a public share URL. Poll with `get_seedance_task`. Generation typically takes 1–3 minutes.
 
 ### get_seedance_task
 
-Poll a Seedance task by ID. Returns `status` (`pending` / `running` / `succeeded` / `failed`), the public read-only share URL, credits charged, and the result JSON when done.
+Poll a Seedance task by ID. Returns `status` (`pending` / `running` / `succeeded` / `failed`), the template and hook it used, the public read-only share URL, credits charged, any `failure_reason`, and the result JSON when done.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -149,3 +178,5 @@ Paginated list of Seedance / Marketing Studio tasks. Rows include the same publi
 | `page` | number | no | Page number |
 | `page_size` | number | no | Items per page |
 | `status` | enum | no | Filter: `pending`, `running`, `succeeded`, `failed` |
+| `project_id` | string | no | Only tasks in this marketing project |
+| `hooks_only` | boolean | no | Only tasks generated with an opening hook |

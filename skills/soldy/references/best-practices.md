@@ -13,7 +13,7 @@ The first judgment call is always: **Quick Create or Marketing Studio?**
 - The user wants control over model, resolution, duration, or reference slots directly.
 
 **Signals for Marketing Studio (`seedance_generate`):**
-- A format-named ad: "UGC ad", "unboxing video", "product review", "tutorial", "TV spot", "virtual try on".
+- A format-named ad: "UGC ad", "unboxing video", "testimonial", "try on", "TV spot", "before and after", "product demo".
 - The user has a product image and just wants a finished, polished ad in one shot.
 - They described a marketing *style* without naming a model — let the template do the work.
 
@@ -24,7 +24,7 @@ When in doubt between a template and a raw render, ask which the user cares more
 Both paths have closed vocabularies. Don't guess.
 
 - **Quick Create** — call `video_list_models` / `image_list_models` first whenever the `model`, `mode`, or parameter values are unclear. The registry is API-owned and changes per API key (Seedance, Kling, GPT Image 2, Gemini are enabled selectively). Pass the registry-owned values straight through; top-level convenience fields (`duration`, `ratio`, `resolution`, etc.) override duplicates inside `parameters`.
-- **Marketing Studio** — the `module` enum is closed. If the user described a style but didn't name a template, call `list_video_ad_templates` and pick the closest match. Surface 2–3 options only when the match is genuinely ambiguous.
+- **Marketing Studio** — the `module` enum is closed and the template catalog is live. Call `plan_video_ad` first and present the options; the user picks the template and parameters, not you. If they described a style but didn't name a template, offer the closest 2–3 matches from the catalog. Pass both `module` and `marketing_template_id` on submit.
 
 ## Phrasing a prompt
 
@@ -55,7 +55,9 @@ Micro-directing a single-shot render throws away what the model is good at. If t
 
 - **Batch references.** Pass all reference images/videos/audio in one generation request, not across several. In Quick Create they go in `input_assets` under registry-specific slots (`image_url`, `video_url`, `audio_url`, `first_image_url`, `last_image_url`, `image_urls`); in Marketing Studio they go in `image_url` / `video_url` / `audio_url`.
 - **Local paths auto-upload.** `./product.jpg` is uploaded before submission; HTTP and `gs://` URLs pass through untouched.
-- **Preserve material-library `id`s.** In `seedance_generate`, reference arrays accept `{ url, id }` objects. When the `id` came from a Soldy material list, pass it through — don't collapse it to a bare URL string, or the backend can't resolve the original asset.
+- **Preserve material-library `id`s and roles.** In `seedance_generate`, reference arrays accept `{ url, id }` objects. When the `id` came from a Soldy material list, pass it through — don't collapse it to a bare URL string, or the backend can't resolve the original asset. On `image_url`, also tag the role: `type: "avatar"` for the presenter, `type: "product"` for the product. Templates with `requires_avatar` need an avatar reference.
+
+- **Respect the template's limits.** Keep `duration` inside the template's `duration_range` (`duration_range_with_hook` when a hook is attached), and only attach a `hook_id` to a `hook_capable` template. The backend rejects both violations outright rather than clamping.
 - **Match the mode to the reference.** An image-to-video request needs a mode that consumes an image slot; a text-to-video request doesn't. `video_list_models` tells you which modes exist and what slots they read.
 
 ## Reading task state
@@ -87,9 +89,10 @@ Only terminal tasks can be retried or deleted — the API rejects retry/delete o
 ## Common anti-patterns
 
 - **Guessing `model` / `mode` / `parameters`.** Discover them with `video_list_models` / `image_list_models`. Invented values fail.
-- **Guessing a template `module`.** The enum is closed; call `list_video_ad_templates` if unsure.
+- **Guessing a template `module` or `marketing_template_id`.** The enum is closed and the ids are live; call `plan_video_ad` if unsure.
+- **Auto-picking the template and parameters.** Marketing Studio is options-first — present and let the user choose unless they explicitly said "you choose".
 - **Routing a format-named ad through Quick Create.** "Make me a UGC ad" is Marketing Studio — the template does more than a raw render.
 - **Routing a raw render or specific-model request through Marketing Studio.** "Render this with Kling" is Quick Create.
-- **Stripping `id`s off material-library refs.** Pass `{ url, id }` through in `seedance_generate`.
+- **Stripping `id`s or `type` roles off material-library refs.** Pass `{ url, id, type }` through in `seedance_generate`.
 - **Writing shot-by-shot prompts for a single render.** Describe outcomes; pick the right mode and references for structure.
 - **Tight polling loops.** Submit, inform the user, then check.

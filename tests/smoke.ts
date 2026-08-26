@@ -167,9 +167,39 @@ try {
         `plan_video_ad did not return JSON: ${text.slice(0, 120)}`,
       );
     }
-    const catalog = parsed as { templates?: unknown; parameters?: unknown };
-    if (!Array.isArray(catalog.templates) || !catalog.parameters) {
+    if (!isRecord(parsed)) {
+      throw new Error("plan_video_ad did not return an object");
+    }
+    if (!isRecord(parsed.templates) || !parsed.parameters) {
       throw new Error("plan_video_ad missing templates/parameters");
+    }
+    if (!isRecord(parsed.modules) || !Array.isArray(parsed.modules.items)) {
+      throw new Error("plan_video_ad missing the module catalog");
+    }
+    if (!isRecord(parsed.hooks)) {
+      throw new Error("plan_video_ad missing the hook catalog");
+    }
+    const live = parsed.templates.items;
+    if (Array.isArray(live)) {
+      // Live rows must carry what seedance_generate needs to submit them.
+      for (const row of live) {
+        if (!isRecord(row)) continue;
+        if (typeof row.marketing_template_id !== "string") {
+          throw new Error(
+            "plan_video_ad template row is missing marketing_template_id",
+          );
+        }
+        if (!isRecord(row.duration_range)) {
+          throw new Error(
+            `plan_video_ad template ${row.marketing_template_id} is missing duration_range`,
+          );
+        }
+      }
+      console.log(`    \u2192 ${live.length} published templates`);
+    } else {
+      console.log(
+        `    \u2192 live template catalog unavailable: ${JSON.stringify(parsed.templates.error ?? "unknown")}`,
+      );
     }
   });
   await runner.step("list_video_ad_templates (drift check)", async () => {
@@ -182,36 +212,122 @@ try {
         `list_video_ad_templates did not return JSON: ${text.slice(0, 120)}`,
       );
     }
-    if (!Array.isArray(parsed)) {
-      throw new Error("list_video_ad_templates did not return an array");
+    if (!isRecord(parsed)) {
+      throw new Error("list_video_ad_templates did not return an object");
     }
-    const expected = [
+    if (
+      !Array.isArray(parsed.modules) ||
+      !Array.isArray(parsed.legacy_modules)
+    ) {
+      throw new Error("list_video_ad_templates is missing the module catalog");
+    }
+    // Mirrors seedanceAllowedModules (services/api/internal/models/
+    // marketing_studio_module.go) minus the Recast Studio values, which the
+    // MCP does not expose.
+    const expectedModules = [
       "UGC",
-      "Tutorial",
+      "UGC_Try_On",
+      "Unboxing_ASMR",
+      "This_Saved_Me",
+      "Product_First",
+      "Close_Up_Detail_Proof",
+      "Show_The_Texture",
+      "UGC_Showing_Product",
+      "Routine_Insert",
+      "Direct_To_Camera",
+      "Giant_Figure",
+      "Try_It_On_Face",
+      "Show_How_It_Works",
       "Unboxing",
       "Hyper_Motion",
-      "Product_Review",
+      "Before_After",
+      "Sneakers_Try_On",
+      "Model_Pro_Try_On",
       "TV_Spot",
+      "Wild_Concept",
+      "Testimonial",
+    ];
+    const expectedLegacy = [
+      "Tutorial",
+      "Product_Review",
       "Wild_Card",
       "UGC_Virtual_Try_On",
       "Pro_Virtual_Try_On",
-      "Direct",
     ];
-    const got = parsed
-      .map((template) => templateValue(template))
-      .filter((value): value is string => typeof value === "string");
-    const missing = expected.filter((v) => !got.includes(v));
-    const extra = got.filter((v) => !expected.includes(v));
-    if (missing.length || extra.length) {
+    const assertSet = (label: string, got: unknown[], expected: string[]) => {
+      const values = got
+        .map((template) => templateValue(template))
+        .filter((value): value is string => typeof value === "string");
+      const missing = expected.filter((v) => !values.includes(v));
+      const extra = values.filter((v) => !expected.includes(v));
+      if (missing.length || extra.length) {
+        throw new Error(
+          `${label} drift — missing: [${missing.join(", ")}], extra: [${extra.join(", ")}]. ` +
+            `Re-sync services/mcp/src/tools/video-ad-choices.ts with MarketingStudioTemplateModules / ` +
+            `MarketingStudioLegacyModules (services/api/internal/models/marketing_studio_module.go) ` +
+            `and the smoke test 'expected' lists.`,
+        );
+      }
+      return values;
+    };
+    const modules = assertSet("template", parsed.modules, expectedModules);
+    assertSet("legacy template", parsed.legacy_modules, expectedLegacy);
+    if (templateValue(parsed.direct) !== "Direct") {
+      throw new Error("list_video_ad_templates is missing the Direct fallback");
+    }
+    // hook_capable must match models.HookCapableModules exactly — a stale flag
+    // sends the model into a guaranteed HOOK_MODULE_NOT_SUPPORTED rejection.
+    const expectedHookCapable = [
+      "UGC",
+      "UGC_Try_On",
+      "Unboxing_ASMR",
+      "UGC_Showing_Product",
+      "Routine_Insert",
+      "Direct_To_Camera",
+      "Giant_Figure",
+      "Try_It_On_Face",
+      "Unboxing",
+      "Hyper_Motion",
+      "Sneakers_Try_On",
+      "Model_Pro_Try_On",
+      "TV_Spot",
+      "Wild_Concept",
+      "Testimonial",
+    ];
+    const gotHookCapable = parsed.modules
+      .filter((t) => isRecord(t) && t.hookCapable === true)
+      .map((t) => templateValue(t))
+      .filter((v): v is string => typeof v === "string");
+    const hookMissing = expectedHookCapable.filter(
+      (v) => !gotHookCapable.includes(v),
+    );
+    const hookExtra = gotHookCapable.filter(
+      (v) => !expectedHookCapable.includes(v),
+    );
+    if (hookMissing.length || hookExtra.length) {
       throw new Error(
-        `template drift — missing: [${missing.join(", ")}], extra: [${extra.join(", ")}]. ` +
-          `Re-sync VIDEO_AD_TEMPLATES (services/mcp/src/tools/video-ad-choices.ts) with seedanceAllowedModules ` +
-          `(services/api/internal/transport/rest/project/seedance_direct.go) and the smoke test 'expected' list.`,
+        `hook_capable drift — missing: [${hookMissing.join(", ")}], extra: [${hookExtra.join(", ")}]. ` +
+          `Re-sync with models.HookCapableModules (services/api/internal/models/hook_capable_module.go).`,
       );
     }
     console.log(
-      `    → ${got.length} templates: ${got.slice(0, 4).join(", ")}, …`,
+      `    \u2192 ${modules.length} templates + ${expectedLegacy.length} legacy, ${gotHookCapable.length} hook-capable`,
     );
+  });
+  await runner.step("list_video_ad_hooks (read-only)", async () => {
+    const text = await call("list_video_ad_hooks", { limit: 5 });
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `list_video_ad_hooks did not return JSON: ${text.slice(0, 120)}`,
+      );
+    }
+    if (!isRecord(parsed) || !Array.isArray(parsed.presets)) {
+      throw new Error("list_video_ad_hooks did not return a presets array");
+    }
+    console.log(`    \u2192 ${parsed.presets.length} preset hooks`);
   });
   runner.skip(
     "seedance_generate",
