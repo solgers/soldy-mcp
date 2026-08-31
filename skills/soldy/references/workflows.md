@@ -60,7 +60,7 @@ Use these when the user wants one direct render or edit from a prompt and option
 ```
 1. image_list_models() -> find a Gemini model and mode "image_to_image"
 2. image_generate(
-     model: "gemini-3-pro-image-preview",
+     model: "gemini-3-pro-image",
      mode: "image_to_image",
      prompt: "replace the background with a soft gradient studio backdrop",
      input_assets: { image_urls: ["./product.jpg"] }

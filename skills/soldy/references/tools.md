@@ -64,7 +64,7 @@ Submit a direct image generation task through `/public/project/image/generate`.
 
 | Parameter | Type | Required | Notes |
 |---|---|---|---|
-| `model` | string | yes | Registry id from `image_list_models`, e.g. `gpt-image-2`, `gemini-3-pro-image-preview` |
+| `model` | string | yes | Registry id from `image_list_models`, e.g. `gpt-image-2`, `gemini-3-pro-image` |
 | `mode` | string | yes | Registry mode, e.g. `text_to_image`, `image_to_image` |
 | `project_id` | string | no | Existing `improj_*` gallery id; omit to create a new gallery unit |
 | `prompt` | string | no | Generation prompt |

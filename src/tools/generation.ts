@@ -449,9 +449,7 @@ export function registerGenerationTools(
     {
       model: z
         .string()
-        .describe(
-          "Model registry id, e.g. gpt-image-2 or gemini-3-pro-image-preview.",
-        ),
+        .describe("Model registry id, e.g. gpt-image-2 or gemini-3-pro-image."),
       mode: z
         .string()
         .describe(
