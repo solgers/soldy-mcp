@@ -16,14 +16,14 @@ interface Product {
   metadata?: Record<string, unknown> | null;
 }
 
-interface ProductDraft {
-  success?: boolean;
-  error?: string | null;
-  product_name?: string;
-  description?: string;
-  image_urls?: string[];
-  draft?: Record<string, unknown>;
-  readiness?: Record<string, unknown>;
+interface ProductExtraction {
+  product: {
+    name: string;
+    description: string;
+    source_url: string;
+    meta: Record<string, unknown>;
+  };
+  warnings: { code: string; failed_count: number }[];
 }
 
 interface MaterialUpload {
@@ -118,7 +118,7 @@ export function registerProductTools(
 
   server.tool(
     "product_parse_url",
-    "Parse one public product-detail URL into a product draft. This is read/analysis only: it does not create a product object. Review or amend the returned draft, then call product_create explicitly.",
+    "Parse one public product-detail URL into a product draft. This is read/analysis only: it does not create a product object. Returns {product, warnings}. Review product.name, product.description and product.meta, then pass meta as metadata to product_create explicitly. A draft without images requires an upload before creation.",
     {
       product_url: z.string().url().describe("Public product-detail page URL."),
       workspace_id: z
@@ -135,20 +135,16 @@ export function registerProductTools(
     async ({ product_url, workspace_id }) => {
       const workspaceId =
         workspace_id ?? (await client.getDefaultWorkspaceId());
-      const resp = await client.post<ProductDraft>(
-        "/public/product/draft-from-images",
+      const resp = await client.post<ProductExtraction>(
+        "/public/product/extract-from-url",
         {
           workspace_id: workspaceId,
-          image_urls: [],
+          caller: "mcp_product_parse",
           product_url,
         },
+        { signal: AbortSignal.timeout(160_000) },
       );
       if (resp.code !== 0 || !resp.data) return apiError(resp);
-      if (resp.data.success === false) {
-        return errorResult(resp.data.error ?? "Product URL parsing failed.", {
-          draft: resp.data,
-        });
-      }
       return jsonResult(resp.data);
     },
   );
@@ -166,7 +162,6 @@ export function registerProductTools(
         .describe("Workspace override. Defaults to the first workspace."),
       image_urls: z
         .array(z.string().url())
-        .max(20)
         .optional()
         .describe(
           "Product image URLs. They are stored as image entries in metadata.media.",
@@ -204,7 +199,6 @@ export function registerProductTools(
       slug: z.string().optional(),
       image_urls: z
         .array(z.string().url())
-        .max(20)
         .optional()
         .describe(
           "Replacement product image URLs. Omit to preserve current images.",
