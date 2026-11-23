@@ -73,3 +73,29 @@ Two one-shot generation paths — no projects, no conversational agent.
 ## License
 
 Proprietary
+
+### Recast Studio
+
+Run `bun run build` in this directory. The package provides two independent
+stdio entry points. Configure only the credentials for the entry point in use.
+
+| Command | Connection | Tools |
+| --- | --- | --- |
+| `soldy-recast-mcp` | `SOLDY_API_URL` and a user-scoped `SOLDY_API_KEY`. Set `SOLDY_WEB_URL` to the web origin for result links. | List and read published templates, create a task using a workspace product or avatar, read status, cost and result links. |
+| `soldy-recast-internal-mcp` | `SOLDY_ADMIN_API_URL` and a personal `SOLDY_API_KEY` (legacy admin session tokens are also supported). | Sync and inspect feeds, submit share links, read candidates, list available workspaces, start a five-task evaluation, read its report and retry a failed slot. |
+
+For a local checkout, start `node dist/recast-product.js` or
+`node dist/recast-internal.js`. Set the product API origin to
+`http://127.0.0.1:8080`, the admin origin to `http://127.0.0.1:8081`, and the
+web origin to `http://localhost:3000`. Reuse the same request key when retrying
+the same submission. A new generation incurs the normal workspace charge.
+
+Administrators can open **Recast → Connect MCP**, choose their billing organization and generate a personal connection configuration. Paste it into the MCP client. It installs the internal binary and supplies the admin API origin and `SOLDY_API_KEY`. Regenerating or revoking invalidates the previous key everywhere it was used. The environment gate controls internal tool access. A personal key must belong to an active Soldy user with a matching active admin account and current organization membership. Generation uses the selected organization's credits.
+
+In **Agent Install**, run this command in the project where you use your agent:
+
+```sh
+npx skills add https://github.com/solgers/soldy-mcp --skill soldy-recast-admin
+```
+
+Select the intended agent, then ask it to connect Recast admin MCP using the admin API origin displayed on the page. The setup skill guides registration and a read-only connection check. For manual setup, choose a client in **Manual Config**.
