@@ -4,8 +4,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { api, output, recordID, requestKey } from "./recast-http.js";
 
+import { resolveWebUrl } from "./web-links.js";
+
 const server = new McpServer({ name: "soldy-recast", version: "1.0.0" });
 const call = api("public");
+const webUrl = resolveWebUrl(
+  process.env.SOLDY_API_URL || "https://api.soldy.ai",
+  process.env.SOLDY_WEB_URL,
+);
 const published = z
   .object({
     source: z.literal("system"),
@@ -35,7 +41,14 @@ server.registerTool(
     inputSchema: {
       workspace_id: recordID,
       template_id: recordID,
-      request_key: requestKey,
+      request_key: requestKey
+        .regex(
+          /^[!-~](?:[ -~]*[!-~])?$/,
+          "Use printable ASCII without leading or trailing spaces",
+        )
+        .describe(
+          "Use a stable ASCII key such as 123e4567-e89b-12d3-a456-426614174000. Reuse it on retries.",
+        ),
       prompt: z.string().max(4000).optional(),
       product_id: recordID.optional(),
       avatar_id: recordID.optional(),
@@ -59,12 +72,11 @@ server.registerTool(
         cover_url: z.string().optional(),
       })
       .parse((await call(`tasks/${p.task_id}`)).data);
-    const web = new URL(process.env.SOLDY_WEB_URL || "https://soldy.ai");
     return output({
       ...task,
       share_url:
         task.status === "succeeded"
-          ? new URL(`/app/share/recast-studio/${task.id}`, web.origin).href
+          ? new URL(`/app/share/recast-studio/${task.id}`, webUrl).href
           : undefined,
     });
   },

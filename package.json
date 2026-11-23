@@ -16,6 +16,7 @@
     "start": "node dist/index.js",
     "lint": "biome check src/ tests/",
     "lint:fix": "biome check --write src/ tests/",
+    "test:recast": "tsc && node --test tests/recast.test.mjs",
     "test:smoke": "tsc && tsx tests/smoke.ts"
   },
   "dependencies": {

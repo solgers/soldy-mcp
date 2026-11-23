@@ -10,11 +10,13 @@ export function resolveWebUrl(apiUrl: string, explicitWebUrl?: string): string {
     return DEFAULT_WEB_URL;
   }
 
-  if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+  if (["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)) {
     return localWebUrl(parsed);
   }
 
-  if (parsed.hostname === "api-staging.soldy.ai") {
+  if (
+    ["api-staging.soldy.ai", "staging-api.soldy.ai"].includes(parsed.hostname)
+  ) {
     return "https://staging.soldy.ai";
   }
 

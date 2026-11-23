@@ -67,6 +67,9 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Test Recast tools
+        run: node --test tests/recast.test.mjs
+
       - name: Pack release candidate
         run: npm pack --pack-destination "$RUNNER_TEMP"
 

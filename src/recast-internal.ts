@@ -13,27 +13,42 @@ const call = api("admin"),
 server.registerTool(
   "sync_showcases",
   {
-    description: "Queue a Higgsfield showcase feed scan.",
-    inputSchema: {
-      sort: z.enum(["latest", "trending"]),
-      categories: z
-        .array(
-          z.enum([
-            "all",
-            "lifestyle",
-            "fun",
-            "pets",
-            "music videos",
-            "with friends",
-            "sports",
-          ]),
-        )
-        .min(1)
-        .max(7),
-      min_likes: z.number().int().nonnegative(),
-      min_recreates: z.number().int().nonnegative(),
-      max_pages: z.number().int().positive().max(2000),
-    },
+    description:
+      "Queue a Higgsfield showcase feed scan. Use only the all category for latest. Each category may appear once.",
+    inputSchema: z
+      .object({
+        sort: z.enum(["latest", "trending"]),
+        categories: z
+          .array(
+            z.enum([
+              "all",
+              "lifestyle",
+              "fun",
+              "pets",
+              "music videos",
+              "with friends",
+              "sports",
+            ]),
+          )
+          .min(1)
+          .max(7)
+          .refine(
+            (categories) => new Set(categories).size === categories.length,
+            "Categories must be unique",
+          ),
+        min_likes: z.number().int().nonnegative(),
+        min_recreates: z.number().int().nonnegative(),
+        max_pages: z.number().int().positive().max(2000),
+      })
+      .refine(
+        (p) =>
+          p.sort !== "latest" ||
+          (p.categories.length === 1 && p.categories[0] === "all"),
+        {
+          path: ["categories"],
+          message: "Latest scans require exactly the all category",
+        },
+      ),
   },
   async (p) => output(await call("syncs", p)),
 );
