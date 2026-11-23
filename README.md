@@ -79,10 +79,10 @@ Proprietary
 Run `bun run build` in this directory. The package provides two independent
 stdio entry points. Configure only the credentials for the entry point in use.
 
-| Command | Connection | Tools |
-| --- | --- | --- |
-| `soldy-recast-mcp` | `SOLDY_API_URL` and a user-scoped `SOLDY_API_KEY`. Set `SOLDY_WEB_URL` to the web origin for result links. | List and read published templates, create a task using a workspace product or avatar, read status, cost and result links. |
-| `soldy-recast-internal-mcp` | `SOLDY_ADMIN_API_URL` and a personal `SOLDY_API_KEY` (legacy admin session tokens are also supported). | Sync and inspect feeds, submit share links, read candidates, list available workspaces, start a three-task evaluation, read its report and retry a failed slot. |
+| Command                     | Connection                                                                                                 | Tools                                                                                                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `soldy-recast-mcp`          | `SOLDY_API_URL` and a user-scoped `SOLDY_API_KEY`. Set `SOLDY_WEB_URL` to the web origin for result links. | List and read published templates, create a task using a workspace product or avatar, read status, cost and result links.                                       |
+| `soldy-recast-internal-mcp` | `SOLDY_ADMIN_API_URL` and a personal `SOLDY_API_KEY` (legacy admin session tokens are also supported).     | Sync and inspect feeds, submit share links, read candidates, list available workspaces, start a three-task evaluation, read its report and retry a failed slot. |
 
 For a local checkout, start `node dist/recast-product.js` or
 `node dist/recast-internal.js`. Set the product API origin to

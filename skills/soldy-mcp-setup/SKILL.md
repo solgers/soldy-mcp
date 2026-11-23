@@ -1,4 +1,5 @@
 ---
+
 name: soldy-mcp-setup
 description: "Install and configure the Soldy AI MCP server (@soldy_ai/mcp) for any AI agent client. Use when the user wants to install Soldy MCP, connect Soldy to Claude Desktop / Cursor / Claude Code / Codex / Gemini CLI, set up video/image generation via MCP, or encounters Soldy login / SOLDY_API_KEY errors. Also triggers on: 'install soldy', 'add soldy mcp', 'configure soldy', 'soldy api key', 'npx @soldy_ai/mcp'."
 ---
@@ -88,6 +89,7 @@ On machines where a browser login is impossible, set an explicit API key instead
 After installation, call `list_video_ad_templates` (a cheap, read-only, no-argument tool) or `video_list_models`. The first call triggers the browser login if you have never logged in on this machine — complete it, then retry the tool. If it returns without error, the connection is working.
 
 If you see errors:
+
 - Browser login timed out / no browser opened — open the login URL printed on the server's stderr manually, or set `SOLDY_API_KEY` (see Headless above)
 - `Invalid API key` / HTTP 401 — the cached key was revoked; restart the MCP client to log in again, or delete `~/.soldy/credentials.json`
 - `npx: command not found` — install Node.js v18+ (includes npx)
@@ -96,6 +98,7 @@ If you see errors:
 ## Next Steps
 
 Once the MCP server is installed and verified, the **soldy** skill provides complete guidance on:
+
 - Quick Create — one-shot provider-agnostic video/image renders (Seedance, Kling, GPT Image 2, Gemini)
 - Marketing Studio — template-driven Video Ads (UGC, Unboxing, Tutorial, Product Review, TV Spot, and more)
 - Prompt engineering and reference handling for each path

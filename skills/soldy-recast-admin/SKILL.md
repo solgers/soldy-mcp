@@ -1,4 +1,5 @@
 ---
+
 name: soldy-recast-admin
 description: Connect Soldy Recast Admin and run Higgsfield feed intake, candidate review handoffs, budgeted evaluations, three-video reports and publication of a selected result.
 ---

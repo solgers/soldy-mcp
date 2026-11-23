@@ -7,15 +7,17 @@ The main SKILL.md gives you the mental model. This document is the deeper-cut ve
 The first judgment call is always: **Quick Create or Marketing Studio?**
 
 **Signals for Quick Create (`video_*` / `image_*`):**
+
 - "Animate this photo." / "Turn this image into a short loop." / "Make a 5-second video from this reference."
 - A named model or mode: "render this with Kling", "use GPT Image 2", "image-to-video".
 - A raw render or edit with no ad framing: "generate four product images", "edit this to a white background".
 - The user wants control over model, resolution, duration, or reference slots directly.
 
 **Signals for Marketing Studio (`seedance_generate`):**
+
 - A format-named ad: "UGC ad", "unboxing video", "testimonial", "try on", "TV spot", "before and after", "product demo".
 - The user has a product image and just wants a finished, polished ad in one shot.
-- They described a marketing *style* without naming a model — let the template do the work.
+- They described a marketing _style_ without naming a model — let the template do the work.
 
 When in doubt between a template and a raw render, ask which the user cares more about: a purpose-built ad format (Marketing Studio) or exact model/parameter control (Quick Create).
 
@@ -28,7 +30,7 @@ Both paths have closed vocabularies. Don't guess.
 
 ## Phrasing a prompt
 
-State *what matters and why*; leave the *how* to the model. A good prompt reads like creative intent, not a JIRA ticket.
+State _what matters and why_; leave the _how_ to the model. A good prompt reads like creative intent, not a JIRA ticket.
 
 **Good (Quick Create video):**
 
@@ -64,17 +66,17 @@ Micro-directing a single-shot render throws away what the model is good at. If t
 
 Both paths are submit-then-poll. Map status to action:
 
-| Status | What it means | What to do |
-|---|---|---|
-| `pending` / `running` | The task is queued or generating. | Keep watching. Tell the user it's still going (video ~1–3 min, image ~1–4 min). |
-| `succeeded` | The result is ready. | Surface the result JSON and, for Video Ads, the share URL. |
-| `failed` | Generation failed. | Read the error / failure reason. Retry the terminal task, or resubmit with a refined prompt/parameters. |
+| Status                | What it means                     | What to do                                                                                              |
+| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `pending` / `running` | The task is queued or generating. | Keep watching. Tell the user it's still going (video ~1–3 min, image ~1–4 min).                         |
+| `succeeded`           | The result is ready.              | Surface the result JSON and, for Video Ads, the share URL.                                              |
+| `failed`              | Generation failed.                | Read the error / failure reason. Retry the terminal task, or resubmit with a refined prompt/parameters. |
 
 Don't poll in a tight loop — submit, tell the user it's running, then check back.
 
 ## Retry vs. resubmit
 
-- **Retry (same lineage)** — for Quick Create, `video_retry_task` / `image_retry_task` re-runs a *terminal* task with the same inputs and keeps it in the same lineage/gallery. Use it for transient failures or to get another sample of the same request. Trace attempts with `video_get_lineage` / `image_get_lineage`.
+- **Retry (same lineage)** — for Quick Create, `video_retry_task` / `image_retry_task` re-runs a _terminal_ task with the same inputs and keeps it in the same lineage/gallery. Use it for transient failures or to get another sample of the same request. Trace attempts with `video_get_lineage` / `image_get_lineage`.
 - **Resubmit (new task)** — when the prompt, model, mode, references, or parameters need to change, submit a fresh `video_generate` / `image_generate` / `seedance_generate` call. Seedance has no retry tool; a bad Video Ad is a fresh `seedance_generate`.
 
 Only terminal tasks can be retried or deleted — the API rejects retry/delete on a running task.

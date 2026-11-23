@@ -2,11 +2,11 @@
 
 Concrete mini-workflows for the two one-shot creation paths. Both submit a task and poll for the result.
 
-| Path | First call | Submit | Poll |
-|---|---|---|---|
-| **Quick Create — video** | `video_list_models` | `video_generate` | `video_get_task` |
-| **Quick Create — image** | `image_list_models` | `image_generate` | `image_get_task` |
-| **Marketing Studio — Video Ad** | `plan_video_ad` | `seedance_generate` | `get_seedance_task` |
+| Path                            | First call          | Submit              | Poll                |
+| ------------------------------- | ------------------- | ------------------- | ------------------- |
+| **Quick Create — video**        | `video_list_models` | `video_generate`    | `video_get_task`    |
+| **Quick Create — image**        | `image_list_models` | `image_generate`    | `image_get_task`    |
+| **Marketing Studio — Video Ad** | `plan_video_ad`     | `seedance_generate` | `get_seedance_task` |
 
 ---
 
@@ -134,38 +134,38 @@ Use this when the user named or described a Video Ad template. One call renders 
 
 ### Picking the module
 
-If the user described a *style* but not an exact template name, use the `plan_video_ad` catalog (or `list_video_ad_templates`) to pick the closest match — surface 2–3 options only when the match is genuinely ambiguous. The `module` enum is closed:
+If the user described a _style_ but not an exact template name, use the `plan_video_ad` catalog (or `list_video_ad_templates`) to pick the closest match — surface 2–3 options only when the match is genuinely ambiguous. The `module` enum is closed:
 
-| Category | Module | Best for |
-|---|---|---|
-| ugc | `UGC` | Authentic creator-style content |
-| ugc | `UGC_Try_On` | Casual creator trying on the product |
-| ugc | `UGC_Showing_Product` | Creator-style product videos |
-| ugc | `Unboxing` | Exciting product reveal |
-| ugc | `Unboxing_ASMR` | Satisfying unboxing with immersive sound |
-| ugc | `Direct_To_Camera` | Creator speaking straight to camera |
-| ugc | `Testimonial` | Customer testimonial delivered to camera |
-| ugc | `This_Saved_Me` | Benefits as a personal success story |
-| ugc | `Routine_Insert` | Product blended into an everyday routine |
-| ugc | `Try_It_On_Face` | Product previewed directly on the face |
-| ugc | `Sneakers_Try_On` | Sneakers showcased naturally on feet |
-| ugc | `Show_How_It_Works` | Step-by-step product demonstration |
-| ugc | `Before_After` | Visible transformation before and after use |
-| ugc | `Giant_Figure` | Oversized, scroll-stopping product moments |
-| commercial | `TV_Spot` | Cinematic brand-style commercial |
-| commercial | `Hyper_Motion` | High-energy product motion bursts |
-| commercial | `Wild_Concept` | Bold ideas as impossible product ads |
-| commercial | `Model_Pro_Try_On` | Professional model showcasing the product |
-| commercial | `Product_First` | Product naturally used in everyday moments |
-| commercial | `Close_Up_Detail_Proof` | Close-up details that build confidence |
-| commercial | `Show_The_Texture` | Close-up texture and finish reveal |
-| — | `Direct` | No template — runs from prompt + media directly |
+| Category   | Module                  | Best for                                        |
+| ---------- | ----------------------- | ----------------------------------------------- |
+| ugc        | `UGC`                   | Authentic creator-style content                 |
+| ugc        | `UGC_Try_On`            | Casual creator trying on the product            |
+| ugc        | `UGC_Showing_Product`   | Creator-style product videos                    |
+| ugc        | `Unboxing`              | Exciting product reveal                         |
+| ugc        | `Unboxing_ASMR`         | Satisfying unboxing with immersive sound        |
+| ugc        | `Direct_To_Camera`      | Creator speaking straight to camera             |
+| ugc        | `Testimonial`           | Customer testimonial delivered to camera        |
+| ugc        | `This_Saved_Me`         | Benefits as a personal success story            |
+| ugc        | `Routine_Insert`        | Product blended into an everyday routine        |
+| ugc        | `Try_It_On_Face`        | Product previewed directly on the face          |
+| ugc        | `Sneakers_Try_On`       | Sneakers showcased naturally on feet            |
+| ugc        | `Show_How_It_Works`     | Step-by-step product demonstration              |
+| ugc        | `Before_After`          | Visible transformation before and after use     |
+| ugc        | `Giant_Figure`          | Oversized, scroll-stopping product moments      |
+| commercial | `TV_Spot`               | Cinematic brand-style commercial                |
+| commercial | `Hyper_Motion`          | High-energy product motion bursts               |
+| commercial | `Wild_Concept`          | Bold ideas as impossible product ads            |
+| commercial | `Model_Pro_Try_On`      | Professional model showcasing the product       |
+| commercial | `Product_First`         | Product naturally used in everyday moments      |
+| commercial | `Close_Up_Detail_Proof` | Close-up details that build confidence          |
+| commercial | `Show_The_Texture`      | Close-up texture and finish reveal              |
+| —          | `Direct`                | No template — runs from prompt + media directly |
 
 Legacy aliases still accepted for older tasks: `Tutorial`, `Product_Review`, `Wild_Card`, `UGC_Virtual_Try_On`, `Pro_Virtual_Try_On`. Prefer a current module for new renders.
 
 ### Reference handling
 
-`image_url`, `video_url`, and `audio_url` accept plain URL strings *or* `{ url, id }` objects. Use the `{ url, id }` form when the `id` came from a Soldy material list — pass the `id` through so the backend can resolve the original asset; don't strip it. On `image_url`, add the Marketing Studio role: `type: "avatar"` for the presenter, `type: "product"` for the product. Templates with `requires_avatar` need an avatar reference. Local paths are auto-uploaded.
+`image_url`, `video_url`, and `audio_url` accept plain URL strings _or_ `{ url, id }` objects. Use the `{ url, id }` form when the `id` came from a Soldy material list — pass the `id` through so the backend can resolve the original asset; don't strip it. On `image_url`, add the Marketing Studio role: `type: "avatar"` for the presenter, `type: "product"` for the product. Templates with `requires_avatar` need an avatar reference. Local paths are auto-uploaded.
 
 ### Duration and hooks
 
