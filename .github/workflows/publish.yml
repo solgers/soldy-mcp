@@ -59,7 +59,7 @@ jobs:
         run: bun install
 
       - name: Biome check
-        run: bunx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true .
+        run: bun run biome check --no-errors-on-unmatched --files-ignore-unknown=true .
 
       - name: TypeScript check
         run: bunx tsc --noEmit
