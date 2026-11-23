@@ -1,15 +1,16 @@
 name: Publish @soldy_ai/mcp
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
-  group: publish
+  group: publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -37,9 +38,9 @@ jobs:
             echo "New version detected: $VERSION"
           fi
 
-  publish:
+  verify:
     needs: check-version
-    if: needs.check-version.outputs.should_publish == 'true'
+    if: github.event_name == 'pull_request' || needs.check-version.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,8 +67,44 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Run Recast regression tests
+        run: node --test tests/recast.test.mjs
+
+      - name: Pack release candidate
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Install agent CLIs for startup checks
+        run: npm install --global @openai/codex@0.100.0 @anthropic-ai/claude-code@2.1.121
+
+      - name: Verify customer and admin startup from the tarball
+        run: node tests/packed-startup.mjs "$RUNNER_TEMP"/soldy_ai-mcp-*.tgz
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: verified-package
+          path: ${{ runner.temp }}/soldy_ai-mcp-*.tgz
+
+  publish:
+    needs: [check-version, verify]
+    if: github.event_name == 'push' && needs.check-version.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-package
+          path: ${{ runner.temp }}
+
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: npm publish "$RUNNER_TEMP"/soldy_ai-mcp-*.tgz --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

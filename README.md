@@ -73,3 +73,25 @@ Two one-shot generation paths — no projects, no conversational agent.
 ## License
 
 Proprietary
+
+### Recast Studio
+
+Run `bun run build` in this directory. The package provides two independent
+stdio entry points. Configure only the credentials for the entry point in use.
+
+| Command | Connection | Tools |
+| --- | --- | --- |
+| `soldy-recast-mcp` | `SOLDY_API_URL` and a user-scoped `SOLDY_API_KEY`. Set `SOLDY_WEB_URL` to the web origin for result links. | List and read published templates, create a task using a workspace product or avatar, read status, cost and result links. |
+| `soldy-recast-internal-mcp` | `SOLDY_ADMIN_API_URL` and a personal `SOLDY_API_KEY` (legacy admin session tokens are also supported). | Sync and inspect feeds, submit share links, read candidates, list available workspaces, start a three-task evaluation, read its report and retry a failed slot. |
+
+For a local checkout, start `node dist/recast-product.js` or
+`node dist/recast-internal.js`. Set the product API origin to
+`http://127.0.0.1:8080`, the admin origin to `http://127.0.0.1:8081`, and the
+web origin to `http://localhost:3000`. Reuse the same request key when retrying
+the same submission. A new generation incurs the normal workspace charge.
+
+Administrators can open **Recast → Connect MCP**, choose their billing organization and generate a personal connection configuration. Paste it into the MCP client. It installs the internal binary and supplies the admin API origin and `SOLDY_API_KEY`. Regenerating or revoking invalidates the previous key everywhere it was used. The environment gate controls internal tool access. A personal key must belong to an active Soldy user with a matching active admin account and current organization membership. Generation uses the selected organization's credits.
+
+In **Agent Install**, choose Codex or Claude Code and run the displayed connector command in a terminal. The npm package includes the Recast Admin workflow skill. The connector registers the server and installs the bundled skill in the chosen client's skills directory. Reopen the client to load both. **Manual Config** registers the MCP server only.
+
+For a reviewed Higgsfield batch, supply the target workspace, total credit ceiling and a stable request UUID when starting the scan. The backend starts a three-video evaluation for candidates approved during that run, including while the client is closed. Use the run ID to resume, check imports and read evaluation reports. Publishing requires an authorized publisher and an explicitly selected result. A scan without an evaluation budget remains scan-only.

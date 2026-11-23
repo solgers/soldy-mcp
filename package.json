@@ -1,10 +1,14 @@
 {
   "name": "@soldy_ai/mcp",
-  "version": "0.8.0",
-  "description": "Soldy AI MCP Server — video ad generation via Claude Desktop, Cursor, Claude Code",
+  "version": "0.8.2",
+  "description": "Soldy AI MCP Server \u2014 video ad generation via Claude Desktop, Cursor, Claude Code",
   "type": "module",
   "bin": {
-    "soldy-mcp": "./dist/index.js"
+    "mcp": "./dist/index.js",
+    "soldy-mcp": "./dist/index.js",
+    "soldy-recast-mcp": "./dist/recast-product.js",
+    "soldy-recast-connect": "./dist/recast-connect.js",
+    "soldy-recast-internal-mcp": "./dist/recast-internal.js"
   },
   "scripts": {
     "build": "tsc",
@@ -12,6 +16,7 @@
     "start": "node dist/index.js",
     "lint": "biome check src/ tests/",
     "lint:fix": "biome check --write src/ tests/",
+    "test:recast": "tsc && node --test tests/recast.test.mjs",
     "test:smoke": "tsc && tsx tests/smoke.ts"
   },
   "dependencies": {
@@ -27,6 +32,7 @@
   },
   "files": [
     "dist",
+    "skills/soldy-recast-admin/SKILL.md",
     "README.md"
   ],
   "repository": {
