@@ -58,6 +58,42 @@ test("public task keys are validated before submission and preserved on retries"
   }
 });
 
+test("evaluation counts reach quote, start and budgeted scan requests", async (t) => {
+  const call = await connect(t, "internal");
+  for (const n of [undefined, 1, 3, 5, 0, 6, 1.5]) {
+    const args = n === undefined ? {} : { task_count: n };
+    const policy = {
+      workspace_id: task.workspace_id,
+      max_credits: 100,
+      request_key: task.request_key,
+      ...args,
+    };
+    const calls = await Promise.all([
+      call("quote_evaluation", { candidate_id: 1, ...args }),
+      call("start_evaluation", { candidate_id: 1, ...policy }),
+      call("sync_showcases", {
+        sort: "latest",
+        categories: ["all"],
+        max_pages: 1,
+        min_likes: 0,
+        min_recreates: 0,
+        evaluation: policy,
+      }),
+    ]);
+    if (n === undefined || [1, 3, 5].includes(n)) {
+      assert.equal(
+        readSuccess(calls[0]).data.count,
+        n === undefined ? null : String(n),
+      );
+      assert.equal(readSuccess(calls[1]).data.task_count, n);
+      assert.equal(readSuccess(calls[2]).data.evaluation.task_count, n);
+    } else {
+      for (const response of calls)
+        checkError(response, /Invalid (?:input|arguments)/i);
+    }
+  }
+});
+
 test("showcase scans accept zero for unlimited pages per category", async (t) => {
   const call = await connect(t, "internal");
   const scan = (max_pages) =>

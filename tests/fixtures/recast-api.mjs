@@ -21,7 +21,16 @@ globalThis.fetch = async (url, options) => {
       data: { key: options.headers.get("Idempotency-Key") },
     });
   }
-  if (path.endsWith("/syncs"))
+  if (path.endsWith("/quote"))
+    return Response.json({
+      code: 0,
+      data: { count: url.searchParams.get("task_count") },
+    });
+  if (
+    ["/syncs", "/workflows", "/evaluations", "/evaluations/capped"].some(
+      (suffix) => path.endsWith(suffix),
+    )
+  )
     return Response.json({ code: 0, data: JSON.parse(options.body) });
   throw new Error(`Unexpected mock request ${path}`);
 };

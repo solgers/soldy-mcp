@@ -10,6 +10,10 @@ const server = new McpServer({
 });
 const call = api("admin"),
   id = z.number().int().positive();
+const taskCount = id
+  .max(5)
+  .optional()
+  .describe("Tests per candidate (1-5, default 1).");
 server.registerTool(
   "sync_showcases",
   {
@@ -20,6 +24,7 @@ server.registerTool(
         evaluation: z
           .object({
             workspace_id: recordID,
+            task_count: taskCount,
             max_credits: id,
             request_key: z.uuid(),
           })
@@ -87,10 +92,14 @@ server.registerTool(
 server.registerTool(
   "quote_evaluation",
   {
-    inputSchema: { candidate_id: id },
+    inputSchema: { candidate_id: id, task_count: taskCount },
   },
-  async ({ candidate_id }) =>
-    output(await call(`candidates/${candidate_id}/quote`)),
+  async ({ candidate_id, task_count }) =>
+    output(
+      await call(
+        `candidates/${candidate_id}/quote${task_count === undefined ? "" : `?task_count=${task_count}`}`,
+      ),
+    ),
 );
 server.registerTool(
   "publish_evaluation_result",
@@ -135,10 +144,11 @@ server.registerTool(
 server.registerTool(
   "start_evaluation",
   {
-    description: "Submit three billable tasks for an approved candidate.",
+    description: "Submit billable evaluation tasks for an approved candidate.",
     inputSchema: {
       candidate_id: id,
       workspace_id: recordID,
+      task_count: taskCount,
       max_credits: id.optional(),
       request_key: requestKey,
     },
