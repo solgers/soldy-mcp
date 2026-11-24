@@ -22,8 +22,7 @@ const env = {
   CODEX_HOME: join(dir, "codex"),
   CLAUDE_CONFIG_DIR: join(dir, "claude"),
   SOLDY_API_KEY: fixtureKey,
-  npm_config_offline: "true",
-  npm_config_registry: "http://127.0.0.1:1",
+  npm_config_cache: join(dir, "npm-cache"),
 };
 function run(command, args, extra = {}) {
   return execFileSync(command, args, {
@@ -62,6 +61,30 @@ async function probe(command, args, settings, admin) {
   }
 }
 let requests = 0;
+// Resolve @latest to the candidate tarball before the version exists on npm.
+const registry = createServer((req, res) => {
+  if (decodeURIComponent(req.url) === "/@soldy_ai/mcp") {
+    const pkg = JSON.parse(
+      readFileSync(
+        join(dir, "node_modules/@soldy_ai/mcp/package.json"),
+        "utf8",
+      ),
+    );
+    const tarballUrl = `http://127.0.0.1:${registry.address().port}/candidate.tgz`;
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        name: pkg.name,
+        "dist-tags": { latest: pkg.version },
+        versions: { [pkg.version]: { ...pkg, dist: { tarball: tarballUrl } } },
+      }),
+    );
+  } else if (req.url === "/candidate.tgz") {
+    res.end(readFileSync(tarball));
+  } else {
+    res.writeHead(404).end();
+  }
+});
 const api = createServer((req, res) => {
   if (
     req.url !== "/api/v1/admin/recast-mcp/candidates?status=approved&page=1" ||
@@ -89,6 +112,11 @@ try {
     stdio: "inherit",
     timeout: 120000,
   });
+  await new Promise((resolve) => registry.listen(0, "127.0.0.1", resolve));
+  writeFileSync(
+    join(dir, ".npmrc"),
+    `@soldy_ai:registry=http://127.0.0.1:${registry.address().port}/\n`,
+  );
   await new Promise((resolve) => api.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${api.address().port}`;
   await probe("npx", ["-y", "@soldy_ai/mcp"], {}, false);
@@ -138,11 +166,18 @@ try {
           ).mcpServers["soldy-recast-admin"];
     assert.equal(config.command, "npx");
     assert.equal(config.env.SOLDY_ADMIN_API_URL, origin);
+    assert.deepEqual(config.args, [
+      "-y",
+      "--package",
+      "@soldy_ai/mcp@latest",
+      "soldy-recast-internal-mcp",
+    ]);
     await probe(config.command, config.args, config.env, true);
     console.log(`${agent} registration and read-only tool call passed`);
   }
   assert.equal(requests, 2);
 } finally {
+  registry.close();
   api.close();
   rmSync(dir, { recursive: true, force: true });
 }

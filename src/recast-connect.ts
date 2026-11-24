@@ -66,7 +66,7 @@ async function main() {
   const args = [
     "-y",
     "--package",
-    "@soldy_ai/mcp@0.8.2",
+    "@soldy_ai/mcp@latest",
     "soldy-recast-internal-mcp",
   ];
   const env = { SOLDY_ADMIN_API_URL: url.origin, SOLDY_API_KEY: key };

@@ -9,8 +9,8 @@ description: Connect Soldy Recast Admin and run Higgsfield feed intake, candidat
 Use the soldy-recast-admin MCP server. For setup, use the admin origin from Recast → Connect MCP and the personal key for the intended organization. Run the connector in a terminal so its hidden prompt can read the key. Choose the matching client.
 
 ```sh
-npx -y --package @soldy_ai/mcp@0.8.2 soldy-recast-connect codex <ADMIN_API_ORIGIN>
-npx -y --package @soldy_ai/mcp@0.8.2 soldy-recast-connect claude <ADMIN_API_ORIGIN>
+npx -y --package @soldy_ai/mcp@latest soldy-recast-connect codex <ADMIN_API_ORIGIN>
+npx -y --package @soldy_ai/mcp@latest soldy-recast-connect claude <ADMIN_API_ORIGIN>
 ```
 
 Reopen the client and call list_candidates for approved candidates on page 1. An empty list confirms access. A 401 calls for checking the key and origin. A 403 calls for checking admin and organization membership.
