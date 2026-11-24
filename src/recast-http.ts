@@ -60,12 +60,14 @@ export function api(scope: "admin" | "public") {
       .object({
         code: z.number(),
         msg: z.string().optional(),
-        data: z.unknown(),
+        data: z.unknown().optional(),
         page: z.unknown().optional(),
       })
       .parse(await response.json());
     if (envelope.code !== 0)
       throw new Error(envelope.msg || "Soldy request failed");
+    if (!("data" in envelope))
+      throw new Error("Soldy success response is missing data");
     return envelope;
   };
 }
