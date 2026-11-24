@@ -45,7 +45,12 @@ server.registerTool(
           ),
         min_likes: z.number().int().nonnegative(),
         min_recreates: z.number().int().nonnegative(),
-        max_pages: z.number().int().positive().max(2000),
+        max_pages: z
+          .number()
+          .int()
+          .nonnegative()
+          .max(2000)
+          .describe("Maximum pages per category. Use 0 to scan all pages."),
       })
       .refine(
         (p) =>

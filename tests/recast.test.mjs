@@ -58,6 +58,24 @@ test("public task keys are validated before submission and preserved on retries"
   }
 });
 
+test("showcase scans accept zero for unlimited pages per category", async (t) => {
+  const call = await connect(t, "internal");
+  const scan = (max_pages) =>
+    call("sync_showcases", {
+      sort: "latest",
+      categories: ["all"],
+      min_likes: 0,
+      min_recreates: 0,
+      max_pages,
+    });
+  for (const pages of [0, 1, 2000]) {
+    assert.equal(readSuccess(await scan(pages)).data.max_pages, pages);
+  }
+  for (const pages of [-1, 0.5, 2001]) {
+    checkError(await scan(pages), /Invalid (?:input|arguments)/i);
+  }
+});
+
 test("showcase scans validate categories for each sort mode", async (t) => {
   const call = await connect(t, "internal");
   const scan = (sort, categories) =>
