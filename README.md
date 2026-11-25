@@ -95,3 +95,18 @@ Administrators can open **Recast → Connect MCP**, choose their billing organiz
 In **Agent Install**, choose Codex or Claude Code and run the displayed connector command in a terminal. The npm package includes the Recast Admin workflow skill. The connector registers the server and installs the bundled skill in the chosen client's skills directory. Reopen the client to load both. **Manual Config** registers the MCP server only.
 
 For a reviewed Higgsfield batch, supply the target workspace, total credit ceiling and a stable request UUID when starting the scan. The backend starts an evaluation (optional `evaluation.task_count`, 1–5, default 1) for candidates approved during that run, including while the client is closed. Use the run ID to resume, check imports and read evaluation reports. Publishing requires an authorized publisher and an explicitly selected result. A scan without an evaluation budget remains scan-only. For manual evaluations, pass the same optional `task_count` to `quote_evaluation` and `start_evaluation`. In a Feishu bot mention, add a space followed by `task_count=2` after the video link to request two tests per link.
+
+To make one edited variant, call `get_report` for the finished batch. Pass its
+candidate ID and the selected successful task ID to `get_evaluation_edit_draft`.
+The draft includes the original recipe, the image limit and the credit estimate
+for one video. Browse approved replacements with `list_test_asset_categories`
+and `list_test_assets`.
+
+Call `start_edited_evaluation` with the complete ordered image list. For example,
+`[{ "original_index": 1 }, { "catalog_id": 42, "replaces_original_index": 0 }]`
+keeps the second original image first and replaces the first original image
+with asset 42. Original indexes are zero-based. Omit `prompt` to update existing
+numbered references from the new order. Supply an adjusted prompt if you remove
+a referenced image or want to mention a newly added image. Use an approved
+`max_credits` and a stable UUID v4. The tool returns a new evaluation ID to follow
+with `get_report`. Both finished videos remain available under the candidate.

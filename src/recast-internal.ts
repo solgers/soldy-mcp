@@ -156,6 +156,98 @@ server.registerTool(
   async (p) =>
     output(await call(p.max_credits ? "evaluations/capped" : "evaluations", p)),
 );
+const evaluationResult = {
+  candidate_id: id.describe("Candidate ID from the evaluation report."),
+  task_id: recordID.max(64).describe("Successful task ID from get_report."),
+};
+const editPath = (candidateId: number, taskId: string) =>
+  `candidates/${candidateId}/results/${taskId}/edit`;
+
+server.registerTool(
+  "get_evaluation_edit_draft",
+  {
+    description:
+      "Read a successful result's reference video, ordered input images, original prompt, model settings, workspace and current credit estimate for one edited variant.",
+    inputSchema: evaluationResult,
+  },
+  async ({ candidate_id, task_id }) =>
+    output(await call(editPath(candidate_id, task_id))),
+);
+server.registerTool(
+  "list_test_asset_categories",
+  {
+    description: "List categories with approved Recast test assets.",
+    inputSchema: {},
+  },
+  async () => output(await call("test-asset-categories?status=approved")),
+);
+server.registerTool(
+  "list_test_assets",
+  {
+    description:
+      "Browse approved Recast test assets by category. Use the returned asset ID as catalog_id when adding or replacing an image.",
+    inputSchema: {
+      category_id: id,
+      page: id.default(1),
+    },
+  },
+  async ({ category_id, page }) =>
+    output(
+      await call(
+        `test-asset-categories/${category_id}/assets?status=approved&page=${page}&page_size=24`,
+      ),
+    ),
+);
+
+const originalIndex = z.number().int().nonnegative().max(29);
+const evaluationImage = z.union([
+  z.strictObject({
+    original_index: originalIndex.describe("Zero-based index from the draft."),
+  }),
+  z.strictObject({
+    catalog_id: id.describe("Approved test asset ID."),
+    replaces_original_index: originalIndex
+      .optional()
+      .describe(
+        "Transfer references from this zero-based draft index to the replacement.",
+      ),
+  }),
+]);
+
+server.registerTool(
+  "start_edited_evaluation",
+  {
+    description:
+      "Queue exactly one billable variant of a successful evaluation. Get the draft first and use the approved credit limit. Send the complete final image list in order, using original indexes and approved catalog IDs. Omit prompt to renumber existing image references automatically. Provide an updated prompt if a removed image was referenced.",
+    inputSchema: {
+      ...evaluationResult,
+      images: z
+        .array(evaluationImage)
+        .max(30)
+        .describe(
+          "Final ordered images. Omit an original to remove it, or send an empty list for a prompt-only variant.",
+        ),
+      prompt: z
+        .string()
+        .trim()
+        .min(1)
+        .max(4000)
+        .optional()
+        .describe(
+          "Optional edited prompt. Numbered image references use one-based positions in the final list.",
+        ),
+      max_credits: id,
+      request_key: z
+        .uuidv4()
+        .describe(
+          "Fresh UUID v4 for a new edit. Reuse the same UUID and inputs when retrying that submission.",
+        ),
+    },
+  },
+  async ({ candidate_id, task_id, ...edit }) =>
+    output(await call(editPath(candidate_id, task_id), edit)),
+);
+
 server.registerTool("get_report", { inputSchema: { id } }, async (p) =>
   output(await call(`evaluations/${p.id}`)),
 );
